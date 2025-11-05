@@ -1,10 +1,10 @@
 use std::{iter::Peekable, str::Chars};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SymbolToken {
     Plus,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Token {
     Number(u32),
     Symbol(SymbolToken),
