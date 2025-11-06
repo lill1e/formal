@@ -33,10 +33,6 @@ struct Args {
     #[arg(long)]
     parse: bool,
 
-    /// Wheether to run the program after compiling (requires --output)
-    #[arg(long)]
-    run: bool,
-
     /// The program to compile
     #[arg(short, long)]
     program: String,
