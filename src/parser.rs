@@ -5,6 +5,7 @@ use std::{iter::Peekable, vec::IntoIter};
 pub enum Node {
     Number(i32),
     Addition(Box<Node>, Box<Node>),
+    Subtraction(Box<Node>, Box<Node>),
     Begin(Vec<Node>, Box<Node>),
 }
 
@@ -13,6 +14,7 @@ impl Node {
         match self {
             Node::Number(n) => n.to_string(),
             Node::Addition(b1, b2) => format!("(+ {} {})", (*b1).stringify(), (*b2).stringify()),
+            Node::Subtraction(b1, b2) => format!("(- {} {})", (*b1).stringify(), (*b2).stringify()),
             Node::Begin(nodes, last) => format!(
                 "{}\n{}",
                 nodes
@@ -63,9 +65,20 @@ fn parse_unary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
 
 fn parse_binary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     let mut lhs = parse_unary(iter);
-    while let Some(_) = iter.next_if(|t| matches!(t, Token::Symbol(SymbolToken::Plus))) {
+    while let Some(tok) = iter.next_if(|t| {
+        matches!(
+            t,
+            Token::Symbol(SymbolToken::Plus) | Token::Symbol(SymbolToken::Minus)
+        )
+    }) {
         let rhs = parse_unary(iter);
-        lhs = Node::Addition(Box::new(lhs), Box::new(rhs));
+        match tok {
+            Token::Symbol(SymbolToken::Plus) => lhs = Node::Addition(Box::new(lhs), Box::new(rhs)),
+            Token::Symbol(SymbolToken::Minus) => {
+                lhs = Node::Subtraction(Box::new(lhs), Box::new(rhs))
+            }
+            _ => {}
+        }
     }
     return lhs;
 }

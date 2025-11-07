@@ -11,6 +11,7 @@ pub enum AtomicNode {
 #[derive(Debug, Clone)]
 pub enum ComplexNode {
     Addition(AtomicNode, AtomicNode),
+    Subtraction(AtomicNode, AtomicNode),
     Let(String, Box<ComplexNode>, Box<ComplexNode>),
     Atomic(AtomicNode),
     Begin(Vec<ComplexNode>, Box<ComplexNode>),
@@ -35,7 +36,7 @@ impl Node {
     fn rco_atom(self, counter: &mut u32) -> (AtomicNode, HashMap<String, ComplexNode>) {
         match self {
             Node::Number(n) => (AtomicNode::Number(n), HashMap::new()),
-            Node::Addition(_, _) => {
+            Node::Addition(_, _) | Node::Subtraction(_, _) => {
                 let binding = format!("tmp.{}", counter);
                 *counter += 1;
                 return (
@@ -68,6 +69,17 @@ impl Node {
                     ComplexNode::Addition(tmp1.0, tmp2.0),
                 )
             }
+            Node::Subtraction(b1, b2) => {
+                let tmp1 = (*b1).rco_atom(counter);
+                let tmp2 = (*b2).rco_atom(counter);
+                make_lets(
+                    vec![tmp1.1.clone(), tmp2.1.clone()]
+                        .into_iter()
+                        .flat_map(|m| m.into_iter().collect::<Vec<_>>())
+                        .collect::<Vec<_>>(),
+                    ComplexNode::Subtraction(tmp1.0, tmp2.0),
+                )
+            }
             Node::Begin(exprs, last) => ComplexNode::Begin(
                 exprs.into_iter().map(|e| e.rco_exp(counter)).collect(),
                 Box::new(last.rco_exp(counter)),
@@ -95,6 +107,9 @@ impl ComplexNode {
         match self {
             ComplexNode::Atomic(node) => node.stringify(),
             ComplexNode::Addition(n1, n2) => format!("(+ {} {})", n1.stringify(), n2.stringify()),
+            ComplexNode::Subtraction(n1, n2) => {
+                format!("(- {} {})", n1.stringify(), n2.stringify())
+            }
             ComplexNode::Let(sym, binding, body) => format!(
                 "(let [({} {})] {})",
                 sym,

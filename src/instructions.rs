@@ -20,6 +20,7 @@ pub enum X86Value {
 #[derive(Debug, Clone)]
 pub enum Instruction {
     Addq(X86Value, X86Value),
+    Subq(X86Value, X86Value),
     Movq(X86Value, X86Value),
     Retq,
     Jmp(String),
@@ -42,6 +43,10 @@ impl ReturnableNode {
             ReturnableNode::Addition(m, n) => vec![
                 Instruction::Movq(m.select_instructions(), target.clone()),
                 Instruction::Addq(n.select_instructions(), target),
+            ],
+            ReturnableNode::Subtraction(m, n) => vec![
+                Instruction::Movq(m.select_instructions(), target.clone()),
+                Instruction::Subq(n.select_instructions(), target),
             ],
             ReturnableNode::Terminal(t) => vec![Instruction::Movq(t.select_instructions(), target)],
         }
@@ -102,9 +107,9 @@ impl Instruction {
         match self {
             Instruction::Retq => false,
             Instruction::Jmp(_) => false,
-            Instruction::Movq(lhs, rhs) | Instruction::Addq(lhs, rhs) => {
-                lhs.is_var() || rhs.is_var()
-            }
+            Instruction::Movq(lhs, rhs)
+            | Instruction::Addq(lhs, rhs)
+            | Instruction::Subq(lhs, rhs) => lhs.is_var() || rhs.is_var(),
             Instruction::Pushq(v) | Instruction::Popq(v) => v.is_var(),
         }
     }
@@ -169,7 +174,7 @@ impl Instructions for Vec<Instruction> {
             .flat_map(|instr| match instr {
                 Instruction::Retq => Vec::new(),
                 Instruction::Jmp(_) => Vec::new(),
-                Instruction::Addq(lhs, rhs) => {
+                Instruction::Addq(lhs, rhs) | Instruction::Subq(lhs, rhs) => {
                     let mut vars = Vec::new();
                     match lhs {
                         X86Value::Var(v) => {
@@ -320,6 +325,7 @@ impl Instruction {
     fn stringify(&self) -> String {
         match self {
             Instruction::Addq(lhs, rhs) => format!("addq {}, {}", lhs.to_string(), rhs.to_string()),
+            Instruction::Subq(lhs, rhs) => format!("subq {}, {}", lhs.to_string(), rhs.to_string()),
             Instruction::Movq(lhs, rhs) => format!("movq {}, {}", lhs.to_string(), rhs.to_string()),
             Instruction::Jmp(label) => format!("jmp {}", label),
             Instruction::Retq => String::from("retq"),
