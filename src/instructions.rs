@@ -256,10 +256,10 @@ impl Instructions for Vec<Instruction> {
 
     fn generate_asm(self, vars: usize) -> Vec<Block> {
         let mut blocks = Vec::new();
-        let stack_space = if vars % 16 == 0 {
-            vars as i32
+        let stack_space = if (vars * 8) % 16 == 0 {
+            (vars * 8) as i32
         } else {
-            (vars + 8) as i32
+            (vars * 8 + 8) as i32
         };
         blocks.push(Block {
             label: String::from("main"),
