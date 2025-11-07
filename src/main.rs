@@ -40,6 +40,10 @@ struct Args {
     /// The file to output the compiled program to
     #[arg(short, long)]
     output: Option<String>,
+
+    // Whether to display the result of each compiler pass
+    #[arg(short, long)]
+    debug: bool,
 }
 
 fn main() -> Result<()> {
@@ -60,15 +64,41 @@ fn main() -> Result<()> {
         );
     } else {
         let p = args.program;
-        let ast = parse(lex(p.clone()));
-        let memory_asm = ast
-            .clone()
-            .remove_complex_operands()
-            .explicate_control()
-            .select_instructions()
-            .assign_homes();
-        let patched = memory_asm.0.patch_instructions().generate_asm(memory_asm.1);
-        let blocks_str = stringify_blocks(&patched);
+        let lex_result = lex(p.clone());
+        if args.debug && !args.lex {
+            println!("Lexical Analysis (Debug): {:?}", lex_result);
+        }
+        let ast = parse(lex_result);
+        if args.debug && !args.parse {
+            println!("Abstract Syntax Tree (Debug): {:?}", ast);
+        }
+        let rco = ast.clone().remove_complex_operands();
+        if args.debug {
+            println!("Remove Complex Operands: {:?}", rco);
+        }
+        let explicate_control = rco.clone().explicate_control();
+        if args.debug {
+            println!("Explicate Control: {:?}", explicate_control);
+        }
+        let select_instructions = explicate_control.clone().select_instructions();
+        if args.debug {
+            println!("Select Instructions: {:?}", select_instructions);
+        }
+        let assign_homes = select_instructions.clone().assign_homes();
+        if args.debug {
+            println!("Assign Homes: {:?}", assign_homes.0);
+        }
+        let patch_instructions = assign_homes
+            .0
+            .patch_instructions()
+            .generate_asm(assign_homes.1);
+        if args.debug {
+            println!("Patch Instructions: {:?}", patch_instructions);
+        }
+        let blocks_str = stringify_blocks(&patch_instructions);
+        if args.debug {
+            println!("Compield Assembly:\n{}", blocks_str);
+        }
         let output_file = args.output.unwrap_or(String::from("temp"));
 
         File::create(Path::new(&format!("{}.s", &output_file)))
