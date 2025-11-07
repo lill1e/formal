@@ -7,7 +7,12 @@ mod rco;
 
 use anyhow::{Result, anyhow, bail};
 use clap::Parser;
-use std::{fs::File, io::Write, path::Path, process::Command};
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+    process::Command,
+};
 
 use instructions::Instructions;
 use lexer::lex;
@@ -33,9 +38,8 @@ struct Args {
     #[arg(long)]
     parse: bool,
 
-    /// The program to compile
-    #[arg(short, long)]
-    program: String,
+    /// The input file to compile
+    input: String,
 
     /// The file to output the compiled program to
     #[arg(short, long)]
@@ -48,23 +52,23 @@ struct Args {
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    let program = fs::read_to_string(args.input)?;
     if args.lex {
         println!(
-            args.program.clone(),
-            lex(args.program)
             "Input Program:\n{}\nLexical Analysis: {:?}",
+            program.clone(),
+            lex(program)
         );
     } else if args.parse {
-        let p = args.program.clone();
-        let l = lex(args.program);
+        let p = program.clone();
+        let l = lex(program);
         let ast = parse(l.clone());
         println!(
             "Input Program:\n{}\nLexical Analysis: {:?}\nAbstract Syntax Tree: {:?}",
             p, l, ast
         );
     } else {
-        let p = args.program;
-        let lex_result = lex(p.clone());
+        let lex_result = lex(program.clone());
         if args.debug && !args.lex {
             println!("Lexical Analysis (Debug): {:?}", lex_result);
         }
@@ -115,8 +119,8 @@ fn main() -> Result<()> {
         }
 
         println!(
-            p,
             "Input Program:\n{}\nExpected Output: {}\nProgram Exit Code: {}",
+            program,
             ast.interpret(),
             Command::new(format!("./{}.out", &output_file))
                 .output()?
