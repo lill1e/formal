@@ -36,15 +36,7 @@ impl Node {
     fn rco_atom(self, counter: &mut u32) -> (AtomicNode, HashMap<String, ComplexNode>) {
         match self {
             Node::Number(n) => (AtomicNode::Number(n), HashMap::new()),
-            Node::Addition(_, _) | Node::Subtraction(_, _) => {
-                let binding = format!("tmp.{}", counter);
-                *counter += 1;
-                return (
-                    AtomicNode::Reference(binding.clone()),
-                    HashMap::from([(binding.clone(), self.rco_exp(counter))]),
-                );
-            }
-            Node::Begin(_, _) => {
+            Node::Addition(_, _) | Node::Subtraction(_, _) | Node::Begin(_, _) => {
                 let binding = format!("tmp.{}", counter);
                 *counter += 1;
                 return (
