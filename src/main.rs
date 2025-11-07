@@ -50,16 +50,16 @@ fn main() -> Result<()> {
     let args = Args::parse();
     if args.lex {
         println!(
-            "Input Program: {}\nLexical Analysis: {:?}",
             args.program.clone(),
             lex(args.program)
+            "Input Program:\n{}\nLexical Analysis: {:?}",
         );
     } else if args.parse {
         let p = args.program.clone();
         let l = lex(args.program);
         let ast = parse(l.clone());
         println!(
-            "Input Program: {}\nLexical Analysis: {:?}\nAbstract Syntax Tree: {:?}",
+            "Input Program:\n{}\nLexical Analysis: {:?}\nAbstract Syntax Tree: {:?}",
             p, l, ast
         );
     } else {
@@ -115,8 +115,8 @@ fn main() -> Result<()> {
         }
 
         println!(
-            "Input Program: {}\nExpected Output: {}\nProgram Exit Code: {}",
             p,
+            "Input Program:\n{}\nExpected Output: {}\nProgram Exit Code: {}",
             ast.interpret(),
             Command::new(format!("./{}.out", &output_file))
                 .output()?
