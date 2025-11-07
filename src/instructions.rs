@@ -39,12 +39,10 @@ impl TerminalNode {
 impl ReturnableNode {
     pub fn select_instructions(&self, target: X86Value) -> Vec<Instruction> {
         match self {
-            ReturnableNode::Addition(n, m) => {
-                vec![
-                    Instruction::Movq(m.select_instructions(), target.clone()),
-                    Instruction::Addq(n.select_instructions(), target),
-                ]
-            }
+            ReturnableNode::Addition(m, n) => vec![
+                Instruction::Movq(m.select_instructions(), target.clone()),
+                Instruction::Addq(n.select_instructions(), target),
+            ],
             ReturnableNode::Terminal(t) => vec![Instruction::Movq(t.select_instructions(), target)],
         }
     }
