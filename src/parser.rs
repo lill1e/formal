@@ -3,7 +3,7 @@ use std::{iter::Peekable, vec::IntoIter};
 
 #[derive(Debug, Clone)]
 pub enum Node {
-    Number(u32),
+    Number(i32),
     Addition(Box<Node>, Box<Node>),
     Begin(Vec<Node>, Box<Node>),
 }
@@ -47,10 +47,24 @@ fn parse_number(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     }
 }
 
+fn parse_unary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
+    if let Some(token) = iter.next_if(|t| matches!(t, Token::Symbol(SymbolToken::Minus))) {
+        match token {
+            Token::Symbol(SymbolToken::Minus) => match parse_number(iter) {
+                Node::Number(n) => Node::Number(n * -1),
+                n => n,
+            },
+            _ => parse_number(iter),
+        }
+    } else {
+        return parse_number(iter);
+    }
+}
+
 fn parse_binary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
-    let mut lhs = parse_number(iter);
+    let mut lhs = parse_unary(iter);
     while let Some(_) = iter.next_if(|t| matches!(t, Token::Symbol(SymbolToken::Plus))) {
-        let rhs = parse_number(iter);
+        let rhs = parse_unary(iter);
         lhs = Node::Addition(Box::new(lhs), Box::new(rhs));
     }
     return lhs;

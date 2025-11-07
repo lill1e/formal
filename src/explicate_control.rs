@@ -2,7 +2,7 @@ use crate::rco::{AtomicNode, ComplexNode};
 
 #[derive(Debug, Clone)]
 pub enum TerminalNode {
-    Number(u32),
+    Number(i32),
     Reference(String),
 }
 

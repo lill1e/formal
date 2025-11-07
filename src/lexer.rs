@@ -3,10 +3,11 @@ use std::{iter::Peekable, str::Chars};
 #[derive(Debug, Clone)]
 pub enum SymbolToken {
     Plus,
+    Minus,
 }
 #[derive(Debug, Clone)]
 pub enum Token {
-    Number(u32),
+    Number(i32),
     Symbol(SymbolToken),
     Semicolon,
 }
@@ -30,7 +31,15 @@ fn lex_number(iter: &mut Peekable<Chars<'_>>) -> Token {
             None => break,
         }
     }
-    return Token::Number(n);
+    return Token::Number(n as i32);
+}
+
+pub fn lex_char(c: &char) -> Option<SymbolToken> {
+    match c {
+        '+' => Some(SymbolToken::Plus),
+        '-' => Some(SymbolToken::Minus),
+        _ => None,
+    }
 }
 
 pub fn lex(s: String) -> Vec<Token> {
@@ -43,10 +52,15 @@ pub fn lex(s: String) -> Vec<Token> {
                 c if c.is_numeric() => {
                     tokens.push(lex_number(&mut iter));
                 }
-                '+' => {
-                    tokens.push(Token::Symbol(SymbolToken::Plus));
-                    iter.next();
-                }
+                '+' | '-' => match lex_char(c) {
+                    Some(tok) => {
+                        tokens.push(Token::Symbol(tok));
+                        iter.next();
+                    }
+                    None => {
+                        iter.next();
+                    }
+                },
                 ';' => {
                     tokens.push(Token::Semicolon);
                     iter.next();

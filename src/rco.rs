@@ -4,7 +4,7 @@ use crate::parser::Node;
 
 #[derive(Debug, Clone)]
 pub enum AtomicNode {
-    Number(u32),
+    Number(i32),
     Reference(String),
 }
 
