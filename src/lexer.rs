@@ -8,6 +8,7 @@ pub enum SymbolToken {
 pub enum Token {
     Number(u32),
     Symbol(SymbolToken),
+    Semicolon,
 }
 
 fn lex_number(iter: &mut Peekable<Chars<'_>>) -> Token {
@@ -44,6 +45,10 @@ pub fn lex(s: String) -> Vec<Token> {
                 }
                 '+' => {
                     tokens.push(Token::Symbol(SymbolToken::Plus));
+                    iter.next();
+                }
+                ';' => {
+                    tokens.push(Token::Semicolon);
                     iter.next();
                 }
                 _ => {

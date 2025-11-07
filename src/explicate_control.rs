@@ -54,6 +54,24 @@ impl AtomicNode {
 }
 
 impl ComplexNode {
+    pub fn is_pure(&self) -> bool {
+        match self {
+            ComplexNode::Addition(_, _) => true,
+            ComplexNode::Atomic(_) => false,
+            ComplexNode::Let(_, rhs, body) => rhs.is_pure() && body.is_pure(),
+            ComplexNode::Begin(exprs, last) => {
+                exprs.iter().map(|e| e.is_pure()).all(|v| v) && last.is_pure()
+            }
+        }
+    }
+
+    pub fn explicate_effect(self, tail: OrderedNode) -> OrderedNode {
+        match self {
+            n if n.is_pure() => tail,
+            _ => panic!(""),
+        }
+    }
+
     pub fn explicate_tail(self) -> OrderedNode {
         match self {
             ComplexNode::Addition(a1, a2) => {
@@ -62,6 +80,13 @@ impl ComplexNode {
             ComplexNode::Atomic(a) => a.explicate_tail(),
             ComplexNode::Let(sym, binding, body) => {
                 binding.explicate_assign(sym, body.explicate_tail())
+            }
+            ComplexNode::Begin(exprs, last) => {
+                let mut tail = last.explicate_tail();
+                for expr in exprs {
+                    tail = expr.explicate_effect(tail);
+                }
+                return tail;
             }
         }
     }
@@ -76,6 +101,13 @@ impl ComplexNode {
             ),
             ComplexNode::Let(sym, rhs, body) => {
                 rhs.explicate_assign(sym, body.explicate_assign(binding, tail))
+            }
+            ComplexNode::Begin(exprs, last) => {
+                let mut seq_tail = last.explicate_assign(binding, tail);
+                for expr in exprs {
+                    seq_tail = expr.explicate_effect(seq_tail)
+                }
+                return seq_tail;
             }
         }
     }

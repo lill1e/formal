@@ -71,7 +71,6 @@ fn main() -> Result<()> {
         let blocks_str = stringify_blocks(&patched);
         let output_file = args.output.unwrap_or(String::from("temp"));
 
-        // let output_file = args.output.unwrap_or(String::from(p_output));
         File::create(Path::new(&format!("{}.s", &output_file)))
             .expect("There was an error writing to the given file")
             .write_all((blocks_str + "\n").as_bytes())

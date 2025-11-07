@@ -13,6 +13,7 @@ pub enum ComplexNode {
     Addition(AtomicNode, AtomicNode),
     Let(String, Box<ComplexNode>, Box<ComplexNode>),
     Atomic(AtomicNode),
+    Begin(Vec<ComplexNode>, Box<ComplexNode>),
 }
 
 fn make_lets(lets: Vec<(String, ComplexNode)>, after: ComplexNode) -> ComplexNode {
@@ -42,6 +43,14 @@ impl Node {
                     HashMap::from([(binding.clone(), self.rco_exp(counter))]),
                 );
             }
+            Node::Begin(_, _) => {
+                let binding = format!("tmp.{}", counter);
+                *counter += 1;
+                return (
+                    AtomicNode::Reference(binding.clone()),
+                    HashMap::from([(binding.clone(), self.rco_exp(counter))]),
+                );
+            }
         }
     }
 
@@ -59,6 +68,10 @@ impl Node {
                     ComplexNode::Addition(tmp1.0, tmp2.0),
                 )
             }
+            Node::Begin(exprs, last) => ComplexNode::Begin(
+                exprs.into_iter().map(|e| e.rco_exp(counter)).collect(),
+                Box::new(last.rco_exp(counter)),
+            ),
         }
     }
 
@@ -87,6 +100,15 @@ impl ComplexNode {
                 sym,
                 (*binding).stringify(),
                 (*body).stringify()
+            ),
+            ComplexNode::Begin(exprs, last) => format!(
+                "{}\n{}",
+                exprs
+                    .iter()
+                    .map(|e| e.stringify())
+                    .collect::<Vec<String>>()
+                    .join("\n"),
+                last.stringify()
             ),
         }
     }
