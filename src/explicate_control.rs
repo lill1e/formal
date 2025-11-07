@@ -57,7 +57,7 @@ impl ComplexNode {
     pub fn is_pure(&self) -> bool {
         match self {
             ComplexNode::Addition(_, _) => true,
-            ComplexNode::Atomic(_) => false,
+            ComplexNode::Atomic(_) => true,
             ComplexNode::Let(_, rhs, body) => rhs.is_pure() && body.is_pure(),
             ComplexNode::Begin(exprs, last) => {
                 exprs.iter().map(|e| e.is_pure()).all(|v| v) && last.is_pure()
@@ -68,7 +68,7 @@ impl ComplexNode {
     pub fn explicate_effect(self, tail: OrderedNode) -> OrderedNode {
         match self {
             n if n.is_pure() => tail,
-            _ => panic!(""),
+            _ => panic!("explicate_effect received an impure value (needs impl)"),
         }
     }
 
