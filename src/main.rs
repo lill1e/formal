@@ -8,6 +8,7 @@ mod rco;
 use anyhow::{Result, anyhow, bail};
 use clap::Parser;
 use std::{
+    collections::HashMap,
     fs::{self, File},
     io::Write,
     path::Path,
@@ -74,15 +75,15 @@ fn main() -> Result<()> {
         }
         let ast = parse(lex_result);
         if args.debug && !args.parse {
-            println!("Abstract Syntax Tree (Debug): {:?}", ast);
+            println!("Abstract Syntax Tree (Debug):\n{}", ast.to_string());
         }
         let rco = ast.clone().remove_complex_operands();
         if args.debug {
-            println!("Remove Complex Operands: {:?}", rco);
+            println!("Remove Complex Operands:\n{}", rco.to_string());
         }
         let explicate_control = rco.clone().explicate_control();
         if args.debug {
-            println!("Explicate Control: {:?}", explicate_control);
+            println!("Explicate Control:\n{}", explicate_control.to_string());
         }
         let select_instructions = explicate_control.clone().select_instructions();
         if args.debug {
