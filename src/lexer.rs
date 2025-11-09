@@ -4,12 +4,21 @@ use std::{iter::Peekable, str::Chars};
 pub enum SymbolToken {
     Plus,
     Minus,
+    Equals,
 }
+
+#[derive(Debug, Clone)]
+pub enum Keyword {
+    Let,
+}
+
 #[derive(Debug, Clone)]
 pub enum Token {
     Number(i32),
     Symbol(SymbolToken),
     Semicolon,
+    Keyword(Keyword),
+    Identifier(String),
 }
 
 fn lex_number(iter: &mut Peekable<Chars<'_>>) -> Token {
@@ -34,11 +43,23 @@ fn lex_number(iter: &mut Peekable<Chars<'_>>) -> Token {
     return Token::Number(n as i32);
 }
 
-pub fn lex_char(c: &char) -> Option<SymbolToken> {
+pub fn lex_symbol(c: &char) -> Option<SymbolToken> {
     match c {
         '+' => Some(SymbolToken::Plus),
         '-' => Some(SymbolToken::Minus),
+        '=' => Some(SymbolToken::Equals),
         _ => None,
+    }
+}
+
+pub fn lex_word(iter: &mut Peekable<Chars<'_>>) -> Token {
+    let mut acc = String::new();
+    while let Some(c) = iter.next_if(|&c| c.is_alphanumeric()) {
+        acc.push(c);
+    }
+    match acc.as_str() {
+        "let" => Token::Keyword(Keyword::Let),
+        _ => Token::Identifier(acc),
     }
 }
 
@@ -52,7 +73,7 @@ pub fn lex(s: String) -> Vec<Token> {
                 c if c.is_numeric() => {
                     tokens.push(lex_number(&mut iter));
                 }
-                '+' | '-' => match lex_char(c) {
+                '+' | '-' | '=' => match lex_symbol(c) {
                     Some(tok) => {
                         tokens.push(Token::Symbol(tok));
                         iter.next();
@@ -65,6 +86,7 @@ pub fn lex(s: String) -> Vec<Token> {
                     tokens.push(Token::Semicolon);
                     iter.next();
                 }
+                _ if c.is_alphabetic() => tokens.push(lex_word(&mut iter)),
                 _ => {
                     iter.next();
                 }

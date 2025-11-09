@@ -121,7 +121,7 @@ fn main() -> Result<()> {
         println!(
             "Input Program:\n{}\nExpected Output: {}\nProgram Exit Code: {}",
             program,
-            ast.interpret(),
+            ast.interpret(&mut HashMap::new()),
             Command::new(format!("./{}.out", &output_file))
                 .output()?
                 .status

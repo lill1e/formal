@@ -36,7 +36,11 @@ impl Node {
     fn rco_atom(self, counter: &mut u32) -> (AtomicNode, HashMap<String, ComplexNode>) {
         match self {
             Node::Number(n) => (AtomicNode::Number(n), HashMap::new()),
-            Node::Addition(_, _) | Node::Subtraction(_, _) | Node::Begin(_, _) => {
+            Node::Reference(sym) => (AtomicNode::Reference(sym), HashMap::new()),
+            Node::Addition(_, _)
+            | Node::Subtraction(_, _)
+            | Node::Begin(_, _)
+            | Node::Let(_, _, _) => {
                 let binding = format!("tmp.{}", counter);
                 *counter += 1;
                 return (
@@ -76,6 +80,12 @@ impl Node {
                 exprs.into_iter().map(|e| e.rco_exp(counter)).collect(),
                 Box::new(last.rco_exp(counter)),
             ),
+            Node::Let(sym, rhs, body) => ComplexNode::Let(
+                sym,
+                Box::new(rhs.rco_exp(counter)),
+                Box::new(body.rco_exp(counter)),
+            ),
+            Node::Reference(sym) => ComplexNode::Atomic(AtomicNode::Reference(sym)),
         }
     }
 
@@ -105,8 +115,8 @@ impl ComplexNode {
             ComplexNode::Let(sym, binding, body) => format!(
                 "(let [({} {})] {})",
                 sym,
-                (*binding).stringify(),
-                (*body).stringify()
+                binding.stringify(),
+                body.stringify()
             ),
             ComplexNode::Begin(exprs, last) => format!(
                 "{}\n{}",
