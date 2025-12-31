@@ -306,8 +306,8 @@ impl Instruction {
 
 #[derive(Debug, Clone)]
 pub struct Block {
-    label: String,
-    instructions: Vec<Instruction>,
+    pub label: String,
+    pub instructions: Vec<Instruction>,
 }
 
 pub trait Instructions {
