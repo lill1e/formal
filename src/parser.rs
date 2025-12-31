@@ -4,6 +4,7 @@ use std::{iter::Peekable, vec::IntoIter};
 #[derive(Debug, Clone)]
 pub enum UnaryOperation {
     Negation,
+    Not,
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +33,7 @@ impl Node {
             Node::Number(n) => n.to_string(),
             Node::Boolean(b) => b.to_string(),
             Node::Unary(UnaryOperation::Negation, b) => format!("(- {})", b.stringify()),
+            Node::Unary(UnaryOperation::Not, b) => format!("(not {})", b.stringify()),
             Node::Binary(BinaryOperation::Addition, b1, b2) => {
                 format!("(+ {} {})", b1.stringify(), b2.stringify())
             }

@@ -30,6 +30,7 @@ pub enum Instruction {
     Jmp(String),
     Pushq(X86Value),
     Popq(X86Value),
+    Xorq(X86Value, X86Value),
 }
 
 impl TerminalNode {
@@ -57,6 +58,10 @@ impl ReturnableNode {
             ReturnableNode::Unary(UnaryOperation::Negation, n) => vec![
                 Instruction::Movq(n.select_instructions(), target.clone()),
                 Instruction::Negq(target),
+            ],
+            ReturnableNode::Unary(UnaryOperation::Not, n) => vec![
+                Instruction::Movq(n.select_instructions(), target.clone()),
+                Instruction::Xorq(X86Value::Immediate(1), target),
             ],
             ReturnableNode::Terminal(t) => vec![Instruction::Movq(t.select_instructions(), target)],
         }
@@ -119,7 +124,8 @@ impl Instruction {
             Instruction::Jmp(_) => false,
             Instruction::Movq(lhs, rhs)
             | Instruction::Addq(lhs, rhs)
-            | Instruction::Subq(lhs, rhs) => lhs.is_var() || rhs.is_var(),
+            | Instruction::Subq(lhs, rhs)
+            | Instruction::Xorq(lhs, rhs) => lhs.is_var() || rhs.is_var(),
             Instruction::Pushq(v)
             | Instruction::Popq(v)
             | Instruction::Negq(v) => v.is_var(),
@@ -160,6 +166,21 @@ impl Instruction {
                 return Instruction::Addq(new_lhs, new_rhs);
             }
             _ => self,
+            Instruction::Xorq(lhs, rhs) => {
+                let lhs_var = lhs.to_var();
+                let rhs_var = rhs.to_var();
+                let new_lhs = if lhs_var.is_some() && vars.contains_key(&lhs_var.clone().unwrap()) {
+                    lhs.to_memory(vars[&lhs_var.unwrap()])
+                } else {
+                    lhs
+                };
+                let new_rhs = if rhs_var.is_some() && vars.contains_key(&rhs_var.clone().unwrap()) {
+                    rhs.to_memory(vars[&rhs_var.unwrap()])
+                } else {
+                    rhs
+                };
+                return Instruction::Xorq(new_lhs, new_rhs);
+            }
             Instruction::Negq(v) => {
                 let var = v.to_var();
                 let new_var = if var.is_some() && vars.contains_key(&var.clone().unwrap()) {
@@ -239,6 +260,22 @@ impl Instructions for Vec<Instruction> {
                     X86Value::Var(v_name) => vec![v_name],
                     _ => Vec::new(),
                 },
+                Instruction::Xorq(lhs, rhs) => {
+                    let mut vars = Vec::new();
+                    match lhs {
+                        X86Value::Var(v) => {
+                            vars.push(v);
+                        }
+                        _ => {}
+                    }
+                    match rhs {
+                        X86Value::Var(v) => {
+                            vars.push(v);
+                        }
+                        _ => {}
+                    }
+                    return vars;
+                }
             })
             .collect::<HashSet<&String>>();
         let mut var_mapping: HashMap<String, i32> = HashMap::new();
@@ -356,6 +393,7 @@ impl Instruction {
             Instruction::Retq => String::from("retq"),
             Instruction::Pushq(v) => format!("pushq {}", v.to_string()),
             Instruction::Popq(v) => format!("popq {}", v.to_string()),
+            Instruction::Xorq(lhs, rhs) => format!("xorq {}, {}", lhs.to_string(), rhs.to_string()),
             Instruction::Negq(v) => format!("negq {}", v.to_string()),
         }
     }

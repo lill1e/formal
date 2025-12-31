@@ -191,6 +191,7 @@ impl ReturnableNode {
                 format!("{} - {}", n.to_string(), m.to_string())
             }
             ReturnableNode::Unary(UnaryOperation::Negation, n) => format!("-{}", n.to_string()),
+            ReturnableNode::Unary(UnaryOperation::Not, b) => format!("!{}", b.to_string()),
             ReturnableNode::Terminal(n) => n.to_string(),
         }
     }

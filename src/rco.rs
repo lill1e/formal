@@ -143,6 +143,7 @@ impl ComplexNode {
             ),
             ComplexNode::Assignment(sym, rhs) => format!("(set! {} {})", sym, rhs.stringify()),
             ComplexNode::Unary(UnaryOperation::Negation, n) => format!("(- {})", n.stringify()),
+            ComplexNode::Unary(UnaryOperation::Not, n) => format!("(not {})", n.stringify()),
         }
     }
 }
