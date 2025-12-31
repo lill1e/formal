@@ -142,8 +142,26 @@ impl ComplexNode {
                 last.stringify()
             ),
             ComplexNode::Assignment(sym, rhs) => format!("(set! {} {})", sym, rhs.stringify()),
+            ComplexNode::Binary(BinaryOperation::Equals, n1, n2) => {
+                format!("(eq? {} {})", n1.stringify(), n2.stringify())
+            }
+            ComplexNode::Binary(BinaryOperation::NotEquals, n1, n2) => {
+                format!("(not (eq? {} {}))", n1.stringify(), n2.stringify())
+            }
             ComplexNode::Unary(UnaryOperation::Negation, n) => format!("(- {})", n.stringify()),
             ComplexNode::Unary(UnaryOperation::Not, n) => format!("(not {})", n.stringify()),
+            ComplexNode::Binary(BinaryOperation::Greater, n1, n2) => {
+                format!("(> {} {})", n1.stringify(), n2.stringify())
+            }
+            ComplexNode::Binary(BinaryOperation::GreaterEqual, n1, n2) => {
+                format!("(>= {} {})", n1.stringify(), n2.stringify())
+            }
+            ComplexNode::Binary(BinaryOperation::Less, n1, n2) => {
+                format!("(< {} {})", n1.stringify(), n2.stringify())
+            }
+            ComplexNode::Binary(BinaryOperation::LessEqual, n1, n2) => {
+                format!("(<= {} {})", n1.stringify(), n2.stringify())
+            }
         }
     }
 }

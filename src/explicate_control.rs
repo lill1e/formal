@@ -190,9 +190,27 @@ impl ReturnableNode {
             ReturnableNode::Binary(BinaryOperation::Subtraction, n, m) => {
                 format!("{} - {}", n.to_string(), m.to_string())
             }
+            ReturnableNode::Binary(BinaryOperation::Equals, n, m) => {
+                format!("{} == {}", n.to_string(), m.to_string())
+            }
+            ReturnableNode::Binary(BinaryOperation::NotEquals, n, m) => {
+                format!("{} != {}", n.to_string(), m.to_string())
+            }
             ReturnableNode::Unary(UnaryOperation::Negation, n) => format!("-{}", n.to_string()),
             ReturnableNode::Unary(UnaryOperation::Not, b) => format!("!{}", b.to_string()),
             ReturnableNode::Terminal(n) => n.to_string(),
+            ReturnableNode::Binary(BinaryOperation::Greater, n, m) => {
+                format!("{} > {}", n.to_string(), m.to_string())
+            }
+            ReturnableNode::Binary(BinaryOperation::GreaterEqual, n, m) => {
+                format!("{} >= {}", n.to_string(), m.to_string())
+            }
+            ReturnableNode::Binary(BinaryOperation::Less, n, m) => {
+                format!("{} < {}", n.to_string(), m.to_string())
+            }
+            ReturnableNode::Binary(BinaryOperation::LessEqual, n, m) => {
+                format!("{} <= {}", n.to_string(), m.to_string())
+            }
         }
     }
 }

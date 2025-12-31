@@ -13,11 +13,26 @@ pub enum Register {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ByteRegister {
+    Al,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum X86Value {
     Register(Register),
+    ByteRegister(ByteRegister),
     Var(String),
     Immediate(i32),
     Memory(i32),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CmpType {
+    Equals,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
 }
 
 #[derive(Debug, Clone)]
@@ -30,7 +45,10 @@ pub enum Instruction {
     Jmp(String),
     Pushq(X86Value),
     Popq(X86Value),
+    Cmpq(X86Value, X86Value),
+    Movzbq(X86Value, X86Value),
     Xorq(X86Value, X86Value),
+    Set(CmpType, ByteRegister),
 }
 
 impl TerminalNode {
@@ -54,6 +72,43 @@ impl ReturnableNode {
             ReturnableNode::Binary(BinaryOperation::Subtraction, m, n) => vec![
                 Instruction::Movq(m.select_instructions(), target.clone()),
                 Instruction::Subq(n.select_instructions(), target),
+            ],
+            ReturnableNode::Binary(BinaryOperation::Equals, x, y) => vec![
+                Instruction::Movq(x.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Cmpq(y.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Set(CmpType::Equals, ByteRegister::Al),
+                Instruction::Movzbq(X86Value::ByteRegister(ByteRegister::Al), target),
+            ],
+            ReturnableNode::Binary(BinaryOperation::NotEquals, x, y) => vec![
+                Instruction::Movq(x.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Cmpq(y.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Set(CmpType::Equals, ByteRegister::Al),
+                Instruction::Movzbq(X86Value::ByteRegister(ByteRegister::Al), target.clone()),
+                Instruction::Xorq(X86Value::Immediate(1), target),
+            ],
+            ReturnableNode::Binary(BinaryOperation::Greater, x, y) => vec![
+                Instruction::Movq(x.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Cmpq(y.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Set(CmpType::Greater, ByteRegister::Al),
+                Instruction::Movzbq(X86Value::ByteRegister(ByteRegister::Al), target),
+            ],
+            ReturnableNode::Binary(BinaryOperation::GreaterEqual, x, y) => vec![
+                Instruction::Movq(x.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Cmpq(y.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Set(CmpType::GreaterEqual, ByteRegister::Al),
+                Instruction::Movzbq(X86Value::ByteRegister(ByteRegister::Al), target),
+            ],
+            ReturnableNode::Binary(BinaryOperation::Less, x, y) => vec![
+                Instruction::Movq(x.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Cmpq(y.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Set(CmpType::Less, ByteRegister::Al),
+                Instruction::Movzbq(X86Value::ByteRegister(ByteRegister::Al), target),
+            ],
+            ReturnableNode::Binary(BinaryOperation::LessEqual, x, y) => vec![
+                Instruction::Movq(x.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Cmpq(y.select_instructions(), X86Value::Register(Register::Rax)),
+                Instruction::Set(CmpType::LessEqual, ByteRegister::Al),
+                Instruction::Movzbq(X86Value::ByteRegister(ByteRegister::Al), target),
             ],
             ReturnableNode::Unary(UnaryOperation::Negation, n) => vec![
                 Instruction::Movq(n.select_instructions(), target.clone()),
@@ -85,6 +140,7 @@ impl X86Value {
     fn to_memory(self, offset: i32) -> X86Value {
         match self {
             X86Value::Register(_) => self,
+            X86Value::ByteRegister(_) => self,
             X86Value::Immediate(_) => self,
             X86Value::Memory(_) => self,
             X86Value::Var(_) => X86Value::Memory(offset),
@@ -94,6 +150,7 @@ impl X86Value {
     fn to_var(&self) -> Option<String> {
         match self {
             X86Value::Register(_) => None,
+            X86Value::ByteRegister(_) => None,
             X86Value::Immediate(_) => None,
             X86Value::Memory(_) => None,
             X86Value::Var(v) => Some(v.to_string()),
@@ -103,6 +160,7 @@ impl X86Value {
     fn is_var(&self) -> bool {
         match self {
             X86Value::Register(_) => false,
+            X86Value::ByteRegister(_) => false,
             X86Value::Immediate(_) => false,
             X86Value::Memory(_) => false,
             X86Value::Var(_) => true,
@@ -122,12 +180,15 @@ impl Instruction {
         match self {
             Instruction::Retq => false,
             Instruction::Jmp(_) => false,
+            Instruction::Set(_, _) => false,
             Instruction::Movq(lhs, rhs)
             | Instruction::Addq(lhs, rhs)
             | Instruction::Subq(lhs, rhs)
+            | Instruction::Cmpq(lhs, rhs)
             | Instruction::Xorq(lhs, rhs) => lhs.is_var() || rhs.is_var(),
             Instruction::Pushq(v)
             | Instruction::Popq(v)
+            | Instruction::Movzbq(v, _)
             | Instruction::Negq(v) => v.is_var(),
         }
     }
@@ -165,7 +226,51 @@ impl Instruction {
                 };
                 return Instruction::Addq(new_lhs, new_rhs);
             }
-            _ => self,
+            Instruction::Subq(lhs, rhs) => {
+                let lhs_var = lhs.to_var();
+                let rhs_var = rhs.to_var();
+                let new_lhs = if lhs_var.is_some() && vars.contains_key(&lhs_var.clone().unwrap()) {
+                    lhs.to_memory(vars[&lhs_var.unwrap()])
+                } else {
+                    lhs
+                };
+                let new_rhs = if rhs_var.is_some() && vars.contains_key(&rhs_var.clone().unwrap()) {
+                    rhs.to_memory(vars[&rhs_var.unwrap()])
+                } else {
+                    rhs
+                };
+                return Instruction::Subq(new_lhs, new_rhs);
+            }
+            Instruction::Cmpq(lhs, rhs) => {
+                let lhs_var = lhs.to_var();
+                let rhs_var = rhs.to_var();
+                let new_lhs = if lhs_var.is_some() && vars.contains_key(&lhs_var.clone().unwrap()) {
+                    lhs.to_memory(vars[&lhs_var.unwrap()])
+                } else {
+                    lhs
+                };
+                let new_rhs = if rhs_var.is_some() && vars.contains_key(&rhs_var.clone().unwrap()) {
+                    rhs.to_memory(vars[&rhs_var.unwrap()])
+                } else {
+                    rhs
+                };
+                return Instruction::Cmpq(new_lhs, new_rhs);
+            }
+            Instruction::Movzbq(lhs, rhs) => {
+                let lhs_var = lhs.to_var();
+                let rhs_var = rhs.to_var();
+                let new_lhs = if lhs_var.is_some() && vars.contains_key(&lhs_var.clone().unwrap()) {
+                    lhs.to_memory(vars[&lhs_var.unwrap()])
+                } else {
+                    lhs
+                };
+                let new_rhs = if rhs_var.is_some() && vars.contains_key(&rhs_var.clone().unwrap()) {
+                    rhs.to_memory(vars[&rhs_var.unwrap()])
+                } else {
+                    rhs
+                };
+                return Instruction::Movzbq(new_lhs, new_rhs);
+            }
             Instruction::Xorq(lhs, rhs) => {
                 let lhs_var = lhs.to_var();
                 let rhs_var = rhs.to_var();
@@ -190,6 +295,11 @@ impl Instruction {
                 };
                 return Instruction::Negq(new_var);
             }
+            Instruction::Retq
+            | Instruction::Jmp(_)
+            | Instruction::Pushq(_)
+            | Instruction::Popq(_)
+            | Instruction::Set(_, _) => self,
         }
     }
 }
@@ -216,6 +326,7 @@ impl Instructions for Vec<Instruction> {
             .flat_map(|instr| match instr {
                 Instruction::Retq => Vec::new(),
                 Instruction::Jmp(_) => Vec::new(),
+                Instruction::Set(_, _) => Vec::new(),
                 Instruction::Addq(lhs, rhs) | Instruction::Subq(lhs, rhs) => {
                     let mut vars = Vec::new();
                     match lhs {
@@ -260,6 +371,26 @@ impl Instructions for Vec<Instruction> {
                     X86Value::Var(v_name) => vec![v_name],
                     _ => Vec::new(),
                 },
+                Instruction::Movzbq(v, _) => match v {
+                    X86Value::Var(v_name) => vec![v_name],
+                    _ => Vec::new(),
+                },
+                Instruction::Cmpq(lhs, rhs) => {
+                    let mut vars = Vec::new();
+                    match lhs {
+                        X86Value::Var(v) => {
+                            vars.push(v);
+                        }
+                        _ => {}
+                    }
+                    match rhs {
+                        X86Value::Var(v) => {
+                            vars.push(v);
+                        }
+                        _ => {}
+                    }
+                    return vars;
+                }
                 Instruction::Xorq(lhs, rhs) => {
                     let mut vars = Vec::new();
                     match lhs {
@@ -362,6 +493,14 @@ impl Instructions for Vec<Instruction> {
     }
 }
 
+impl ByteRegister {
+    fn stringify(&self) -> String {
+        match self {
+            Self::Al => String::from("%al"),
+        }
+    }
+}
+
 impl Register {
     fn stringify(&self) -> String {
         match self {
@@ -376,9 +515,22 @@ impl X86Value {
     fn stringify(&self) -> String {
         match self {
             X86Value::Register(reg) => reg.to_string(),
+            X86Value::ByteRegister(reg) => reg.to_string(),
             X86Value::Var(sym) => sym.to_string(),
             X86Value::Immediate(n) => format!("${}", n),
             X86Value::Memory(offset) => format!("{}(%rbp)", offset),
+        }
+    }
+}
+
+impl CmpType {
+    fn stringify(&self) -> String {
+        match self {
+            CmpType::Equals => String::from("e"),
+            CmpType::Greater => String::from("g"),
+            CmpType::GreaterEqual => String::from("ge"),
+            CmpType::Less => String::from("l"),
+            CmpType::LessEqual => String::from("le"),
         }
     }
 }
@@ -393,9 +545,20 @@ impl Instruction {
             Instruction::Retq => String::from("retq"),
             Instruction::Pushq(v) => format!("pushq {}", v.to_string()),
             Instruction::Popq(v) => format!("popq {}", v.to_string()),
+            Instruction::Cmpq(lhs, rhs) => format!("cmpq {}, {}", lhs.to_string(), rhs.to_string()),
+            Instruction::Movzbq(lhs, dest) => {
+                format!("movzbq {}, {}", lhs.to_string(), dest.to_string())
+            }
             Instruction::Xorq(lhs, rhs) => format!("xorq {}, {}", lhs.to_string(), rhs.to_string()),
             Instruction::Negq(v) => format!("negq {}", v.to_string()),
+            Instruction::Set(cmp, dest) => format!("set{} {}", cmp.to_string(), dest.to_string()),
         }
+    }
+}
+
+impl ToString for ByteRegister {
+    fn to_string(&self) -> String {
+        return self.stringify();
     }
 }
 
@@ -406,6 +569,12 @@ impl ToString for Register {
 }
 
 impl ToString for X86Value {
+    fn to_string(&self) -> String {
+        return self.stringify();
+    }
+}
+
+impl ToString for CmpType {
     fn to_string(&self) -> String {
         return self.stringify();
     }

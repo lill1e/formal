@@ -1,4 +1,4 @@
-use crate::lexer::{SymbolToken, Token};
+use crate::lexer::{Keyword, SymbolToken, Token};
 use std::{iter::Peekable, vec::IntoIter};
 
 #[derive(Debug, Clone)]
@@ -11,6 +11,12 @@ pub enum UnaryOperation {
 pub enum BinaryOperation {
     Addition,
     Subtraction,
+    Equals,
+    NotEquals,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +60,24 @@ impl Node {
             }
             Node::Reference(sym) => sym.clone(),
             Node::Assignment(sym, rhs) => format!("(set! {} {})", sym, rhs.stringify()),
+            Node::Binary(BinaryOperation::Equals, b1, b2) => {
+                format!("(eq? {} {})", b1.stringify(), b2.stringify())
+            }
+            Node::Binary(BinaryOperation::NotEquals, b1, b2) => {
+                format!("(not (eq? {} {}))", b1.stringify(), b2.stringify())
+            }
+            Node::Binary(BinaryOperation::Greater, b1, b2) => {
+                format!("(> {} {})", b1.stringify(), b2.stringify())
+            }
+            Node::Binary(BinaryOperation::GreaterEqual, b1, b2) => {
+                format!("(>= {} {})", b1.stringify(), b2.stringify())
+            }
+            Node::Binary(BinaryOperation::Less, b1, b2) => {
+                format!("(< {} {})", b1.stringify(), b2.stringify())
+            }
+            Node::Binary(BinaryOperation::LessEqual, b1, b2) => {
+                format!("(<= {} {})", b1.stringify(), b2.stringify())
+            }
         }
     }
 }
@@ -99,11 +123,19 @@ fn parse_unit(iter: &mut Peekable<IntoIter<Token>>) -> Node {
 }
 
 fn parse_unary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
-    if let Some(token) = iter.next_if(|t| matches!(t, Token::Symbol(SymbolToken::Minus))) {
+    if let Some(token) =
+        iter.next_if(|t| matches!(t, Token::Symbol(SymbolToken::Minus | SymbolToken::Bang)))
+    {
         match token {
-            Token::Symbol(SymbolToken::Minus) => match parse_unit(iter) {
+            Token::Symbol(SymbolToken::Minus) => match parse_unary(iter) {
                 Node::Number(n) => Node::Unary(UnaryOperation::Negation, Box::new(Node::Number(n))),
+                Node::Unary(UnaryOperation::Negation, child) => *child,
                 n => n,
+            },
+            Token::Symbol(SymbolToken::Bang) => match parse_unary(iter) {
+                Node::Boolean(b) => Node::Unary(UnaryOperation::Not, Box::new(Node::Boolean(b))),
+                Node::Unary(UnaryOperation::Not, child) => *child,
+                b => b,
             },
             _ => parse_unit(iter),
         }
@@ -136,10 +168,59 @@ fn parse_binary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
 
 fn parse_cmp(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     return parse_binary(iter);
+    let mut lhs = parse_binary(iter);
+    while let Some(tok) = iter.next_if(|t| {
+        matches!(
+            t,
+            Token::Symbol(
+                SymbolToken::Greater
+                    | SymbolToken::GreaterEqual
+                    | SymbolToken::Less
+                    | SymbolToken::LessEqual
+            )
+        )
+    }) {
+        let rhs = parse_binary(iter);
+        match tok {
+            Token::Symbol(SymbolToken::Greater) => {
+                lhs = Node::Binary(BinaryOperation::Greater, Box::new(lhs), Box::new(rhs))
+            }
+            Token::Symbol(SymbolToken::GreaterEqual) => {
+                lhs = Node::Binary(BinaryOperation::GreaterEqual, Box::new(lhs), Box::new(rhs))
+            }
+            Token::Symbol(SymbolToken::Less) => {
+                lhs = Node::Binary(BinaryOperation::Less, Box::new(lhs), Box::new(rhs))
+            }
+            Token::Symbol(SymbolToken::LessEqual) => {
+                lhs = Node::Binary(BinaryOperation::LessEqual, Box::new(lhs), Box::new(rhs))
+            }
+            _ => {}
+        }
+    }
+    return lhs;
 }
 
 fn parse_eq(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     return parse_binary(iter);
+    let mut lhs = parse_cmp(iter);
+    while let Some(tok) = iter.next_if(|t| {
+        matches!(
+            t,
+            Token::Symbol(SymbolToken::DoubleEquals | SymbolToken::NotEquals)
+        )
+    }) {
+        let rhs = parse_cmp(iter);
+        match tok {
+            Token::Symbol(SymbolToken::DoubleEquals) => {
+                lhs = Node::Binary(BinaryOperation::Equals, Box::new(lhs), Box::new(rhs))
+            }
+            Token::Symbol(SymbolToken::NotEquals) => {
+                lhs = Node::Binary(BinaryOperation::NotEquals, Box::new(lhs), Box::new(rhs))
+            }
+            _ => {}
+        }
+    }
+    return lhs;
 }
 
 fn parse_assigment(iter: &mut Peekable<IntoIter<Token>>) -> Node {
