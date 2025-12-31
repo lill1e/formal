@@ -133,12 +133,13 @@ impl ComplexNode {
                 body.stringify()
             ),
             ComplexNode::Begin(exprs, last) => format!(
-                "{}\n{}",
+                "(begin {}{})",
                 exprs
                     .iter()
-                    .map(|e| e.stringify())
+                    .map(|n| n.stringify())
                     .collect::<Vec<String>>()
-                    .join("\n"),
+                    .join(" ")
+                    + (if exprs.is_empty() { "" } else { " " }),
                 last.stringify()
             ),
             ComplexNode::Assignment(sym, rhs) => format!("(set! {} {})", sym, rhs.stringify()),

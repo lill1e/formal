@@ -47,12 +47,13 @@ impl Node {
                 format!("(- {} {})", b1.stringify(), b2.stringify())
             }
             Node::Begin(nodes, last) => format!(
-                "{}\n{}",
+                "(begin {}{})",
                 nodes
                     .iter()
                     .map(|n| n.stringify())
                     .collect::<Vec<String>>()
-                    .join("\n"),
+                    .join(" ")
+                    + (if nodes.is_empty() { "" } else { " " }),
                 last.stringify()
             ),
             Node::Let(sym, rhs, body) => {
