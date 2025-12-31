@@ -91,7 +91,18 @@ impl ComplexNode {
 
     pub fn explicate_effect(self, tail: OrderedNode) -> OrderedNode {
         match self {
-            n if n.is_pure() => tail,
+            _ if self.is_pure() => tail,
+            ComplexNode::Let(sym, rhs, body) => {
+                rhs.explicate_assign(sym, body.explicate_effect(tail))
+            }
+            ComplexNode::Assignment(sym, rhs) => rhs.explicate_assign(sym, tail),
+            ComplexNode::Begin(exprs, last) => {
+                let mut curr = last.explicate_effect(tail);
+                for expr in exprs {
+                    curr = expr.explicate_effect(curr);
+                }
+                return curr;
+            }
             _ => panic!("explicate_effect received an impure value (needs impl)"),
         }
     }
