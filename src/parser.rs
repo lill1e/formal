@@ -2,16 +2,27 @@ use crate::lexer::{SymbolToken, Token};
 use std::{iter::Peekable, vec::IntoIter};
 
 #[derive(Debug, Clone)]
+pub enum UnaryOperation {
+    Negation,
+}
+
+#[derive(Debug, Clone)]
+pub enum BinaryOperation {
+    Addition,
+    Subtraction,
+}
+
+#[derive(Debug, Clone)]
 pub enum Node {
     Void,
     Number(i32),
-    Addition(Box<Node>, Box<Node>),
-    Subtraction(Box<Node>, Box<Node>),
     Boolean(bool),
     Begin(Vec<Node>, Box<Node>),
     Let(String, Box<Node>, Box<Node>),
     Reference(String),
     Assignment(String, Box<Node>),
+    Unary(UnaryOperation, Box<Node>),
+    Binary(BinaryOperation, Box<Node>, Box<Node>),
 }
 
 impl Node {
@@ -19,9 +30,14 @@ impl Node {
         match self {
             Node::Void => String::from("void"),
             Node::Number(n) => n.to_string(),
-            Node::Addition(b1, b2) => format!("(+ {} {})", b1.stringify(), b2.stringify()),
-            Node::Subtraction(b1, b2) => format!("(- {} {})", b1.stringify(), b2.stringify()),
             Node::Boolean(b) => b.to_string(),
+            Node::Unary(UnaryOperation::Negation, b) => format!("(- {})", b.stringify()),
+            Node::Binary(BinaryOperation::Addition, b1, b2) => {
+                format!("(+ {} {})", b1.stringify(), b2.stringify())
+            }
+            Node::Binary(BinaryOperation::Subtraction, b1, b2) => {
+                format!("(- {} {})", b1.stringify(), b2.stringify())
+            }
             Node::Begin(nodes, last) => format!(
                 "{}\n{}",
                 nodes
@@ -84,7 +100,7 @@ fn parse_unary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     if let Some(token) = iter.next_if(|t| matches!(t, Token::Symbol(SymbolToken::Minus))) {
         match token {
             Token::Symbol(SymbolToken::Minus) => match parse_unit(iter) {
-                Node::Number(n) => Node::Number(n * -1),
+                Node::Number(n) => Node::Unary(UnaryOperation::Negation, Box::new(Node::Number(n))),
                 n => n,
             },
             _ => parse_unit(iter),
@@ -104,9 +120,11 @@ fn parse_binary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     }) {
         let rhs = parse_unary(iter);
         match tok {
-            Token::Symbol(SymbolToken::Plus) => lhs = Node::Addition(Box::new(lhs), Box::new(rhs)),
+            Token::Symbol(SymbolToken::Plus) => {
+                lhs = Node::Binary(BinaryOperation::Addition, Box::new(lhs), Box::new(rhs))
+            }
             Token::Symbol(SymbolToken::Minus) => {
-                lhs = Node::Subtraction(Box::new(lhs), Box::new(rhs))
+                lhs = Node::Binary(BinaryOperation::Subtraction, Box::new(lhs), Box::new(rhs))
             }
             _ => {}
         }

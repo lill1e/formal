@@ -1,4 +1,7 @@
-use crate::rco::{AtomicNode, ComplexNode};
+use crate::{
+    parser::{BinaryOperation, UnaryOperation},
+    rco::{AtomicNode, ComplexNode},
+};
 
 #[derive(Debug, Clone)]
 pub enum TerminalNode {
@@ -10,8 +13,8 @@ pub enum TerminalNode {
 
 #[derive(Debug, Clone)]
 pub enum ReturnableNode {
-    Addition(TerminalNode, TerminalNode),
-    Subtraction(TerminalNode, TerminalNode),
+    Binary(BinaryOperation, TerminalNode, TerminalNode),
+    Unary(UnaryOperation, TerminalNode),
     Terminal(TerminalNode),
 }
 
@@ -75,13 +78,14 @@ impl AtomicNode {
 impl ComplexNode {
     pub fn is_pure(&self) -> bool {
         match self {
-            ComplexNode::Addition(_, _) | ComplexNode::Subtraction(_, _) => true,
+            ComplexNode::Binary(_, _, _) => true,
             ComplexNode::Atomic(_) => true,
             ComplexNode::Let(_, rhs, body) => rhs.is_pure() && body.is_pure(),
             ComplexNode::Begin(exprs, last) => {
                 exprs.iter().map(|e| e.is_pure()).all(|v| v) && last.is_pure()
             }
             ComplexNode::Assignment(_, _) => false,
+            ComplexNode::Unary(_, _) => true,
         }
     }
 
@@ -94,10 +98,8 @@ impl ComplexNode {
 
     pub fn explicate_tail(self) -> OrderedNode {
         match self {
-            ComplexNode::Addition(a1, a2) => {
-                OrderedNode::Return(ReturnableNode::Addition(a1.as_terminal(), a2.as_terminal()))
-            }
-            ComplexNode::Subtraction(a1, a2) => OrderedNode::Return(ReturnableNode::Subtraction(
+            ComplexNode::Binary(operation, a1, a2) => OrderedNode::Return(ReturnableNode::Binary(
+                operation,
                 a1.as_terminal(),
                 a2.as_terminal(),
             )),
@@ -115,20 +117,18 @@ impl ComplexNode {
             ComplexNode::Assignment(_, _) => self.explicate_effect(OrderedNode::Return(
                 ReturnableNode::Terminal(TerminalNode::Void),
             )),
+            ComplexNode::Unary(operation, a) => {
+                OrderedNode::Return(ReturnableNode::Unary(operation, a.as_terminal()))
+            }
         }
     }
 
     pub fn explicate_assign(self, binding: String, tail: OrderedNode) -> OrderedNode {
         match self {
             ComplexNode::Atomic(a) => a.explicate_assign(binding, tail),
-            ComplexNode::Addition(a1, a2) => OrderedNode::Binding(
+            ComplexNode::Binary(operation, a1, a2) => OrderedNode::Binding(
                 binding,
-                ReturnableNode::Addition(a1.as_terminal(), a2.as_terminal()),
-                Box::new(tail),
-            ),
-            ComplexNode::Subtraction(a1, a2) => OrderedNode::Binding(
-                binding,
-                ReturnableNode::Subtraction(a1.as_terminal(), a2.as_terminal()),
+                ReturnableNode::Binary(operation, a1.as_terminal(), a2.as_terminal()),
                 Box::new(tail),
             ),
             ComplexNode::Let(sym, rhs, body) => {
@@ -146,6 +146,11 @@ impl ComplexNode {
                 ReturnableNode::Terminal(TerminalNode::Void),
                 Box::new(tail),
             )),
+            ComplexNode::Unary(operation, a) => OrderedNode::Binding(
+                binding,
+                ReturnableNode::Unary(operation, a.as_terminal()),
+                Box::new(tail),
+            ),
         }
     }
 
@@ -168,8 +173,13 @@ impl TerminalNode {
 impl ReturnableNode {
     fn stringify(&self) -> String {
         match self {
-            ReturnableNode::Addition(n, m) => format!("{} + {}", n.to_string(), m.to_string()),
-            ReturnableNode::Subtraction(n, m) => format!("{} - {}", n.to_string(), m.to_string()),
+            ReturnableNode::Binary(BinaryOperation::Addition, n, m) => {
+                format!("{} + {}", n.to_string(), m.to_string())
+            }
+            ReturnableNode::Binary(BinaryOperation::Subtraction, n, m) => {
+                format!("{} - {}", n.to_string(), m.to_string())
+            }
+            ReturnableNode::Unary(UnaryOperation::Negation, n) => format!("-{}", n.to_string()),
             ReturnableNode::Terminal(n) => n.to_string(),
         }
     }

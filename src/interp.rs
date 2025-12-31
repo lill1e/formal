@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use crate::parser::Node;
 use anyhow::{Ok, Result, bail};
+
+use crate::parser::{BinaryOperation, Node, UnaryOperation};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Returnable {
@@ -39,11 +40,15 @@ impl Returnable {
 impl Node {
     pub fn interpret(&self, env: &mut HashMap<String, Returnable>) -> Returnable {
         match self {
-            Node::Addition(n, m) => n.interpret(env) + m.interpret(env),
-            Node::Subtraction(n, m) => n.interpret(env) - m.interpret(env),
             Node::Void => Returnable::Void,
             Node::Number(n) => Returnable::Number(*n),
             Node::Boolean(b) => Returnable::Boolean(*b),
+            Node::Binary(BinaryOperation::Addition, n, m) => Returnable::Number(
+                n.interpret(env).unwrap_int().unwrap() + m.interpret(env).unwrap_int().unwrap(),
+            ),
+            Node::Binary(BinaryOperation::Subtraction, n, m) => Returnable::Number(
+                n.interpret(env).unwrap_int().unwrap() + m.interpret(env).unwrap_int().unwrap(),
+            ),
             Node::Begin(nodes, last) => {
                 for node in nodes {
                     node.interpret(env);
@@ -60,6 +65,9 @@ impl Node {
                 let v = rhs.interpret(env);
                 env.insert(sym.clone(), v);
                 return Returnable::Number(0);
+            }
+            Node::Unary(UnaryOperation::Negation, n) => {
+                Returnable::Number(-n.interpret(env).unwrap_int().unwrap())
             }
         }
     }

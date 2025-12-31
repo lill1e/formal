@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::explicate_control::{OrderedNode, ReturnableNode, TerminalNode};
+use crate::{
+    explicate_control::{OrderedNode, ReturnableNode, TerminalNode},
+    parser::{BinaryOperation, UnaryOperation},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Register {
@@ -22,6 +25,7 @@ pub enum Instruction {
     Addq(X86Value, X86Value),
     Subq(X86Value, X86Value),
     Movq(X86Value, X86Value),
+    Negq(X86Value),
     Retq,
     Jmp(String),
     Pushq(X86Value),
@@ -42,13 +46,17 @@ impl TerminalNode {
 impl ReturnableNode {
     pub fn select_instructions(&self, target: X86Value) -> Vec<Instruction> {
         match self {
-            ReturnableNode::Addition(m, n) => vec![
+            ReturnableNode::Binary(BinaryOperation::Addition, m, n) => vec![
                 Instruction::Movq(m.select_instructions(), target.clone()),
                 Instruction::Addq(n.select_instructions(), target),
             ],
-            ReturnableNode::Subtraction(m, n) => vec![
+            ReturnableNode::Binary(BinaryOperation::Subtraction, m, n) => vec![
                 Instruction::Movq(m.select_instructions(), target.clone()),
                 Instruction::Subq(n.select_instructions(), target),
+            ],
+            ReturnableNode::Unary(UnaryOperation::Negation, n) => vec![
+                Instruction::Movq(n.select_instructions(), target.clone()),
+                Instruction::Negq(target),
             ],
             ReturnableNode::Terminal(t) => vec![Instruction::Movq(t.select_instructions(), target)],
         }
@@ -112,7 +120,9 @@ impl Instruction {
             Instruction::Movq(lhs, rhs)
             | Instruction::Addq(lhs, rhs)
             | Instruction::Subq(lhs, rhs) => lhs.is_var() || rhs.is_var(),
-            Instruction::Pushq(v) | Instruction::Popq(v) => v.is_var(),
+            Instruction::Pushq(v)
+            | Instruction::Popq(v)
+            | Instruction::Negq(v) => v.is_var(),
         }
     }
 
@@ -150,6 +160,15 @@ impl Instruction {
                 return Instruction::Addq(new_lhs, new_rhs);
             }
             _ => self,
+            Instruction::Negq(v) => {
+                let var = v.to_var();
+                let new_var = if var.is_some() && vars.contains_key(&var.clone().unwrap()) {
+                    v.to_memory(vars[&var.unwrap()])
+                } else {
+                    v
+                };
+                return Instruction::Negq(new_var);
+            }
         }
     }
 }
@@ -209,6 +228,10 @@ impl Instructions for Vec<Instruction> {
                     return vars;
                 }
                 Instruction::Pushq(v) => match v {
+                    X86Value::Var(v_name) => vec![v_name],
+                    _ => Vec::new(),
+                },
+                Instruction::Negq(v) => match v {
                     X86Value::Var(v_name) => vec![v_name],
                     _ => Vec::new(),
                 },
@@ -333,6 +356,7 @@ impl Instruction {
             Instruction::Retq => String::from("retq"),
             Instruction::Pushq(v) => format!("pushq {}", v.to_string()),
             Instruction::Popq(v) => format!("popq {}", v.to_string()),
+            Instruction::Negq(v) => format!("negq {}", v.to_string()),
         }
     }
 }

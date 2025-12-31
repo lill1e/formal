@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::Node;
+use crate::parser::{BinaryOperation, Node, UnaryOperation};
 
 #[derive(Debug, Clone)]
 pub enum AtomicNode {
@@ -12,8 +12,8 @@ pub enum AtomicNode {
 
 #[derive(Debug, Clone)]
 pub enum ComplexNode {
-    Addition(AtomicNode, AtomicNode),
-    Subtraction(AtomicNode, AtomicNode),
+    Binary(BinaryOperation, AtomicNode, AtomicNode),
+    Unary(UnaryOperation, AtomicNode),
     Let(String, Box<ComplexNode>, Box<ComplexNode>),
     Atomic(AtomicNode),
     Begin(Vec<ComplexNode>, Box<ComplexNode>),
@@ -42,8 +42,8 @@ impl Node {
             Node::Boolean(b) => (AtomicNode::Boolean(b), HashMap::new()),
             Node::Void => (AtomicNode::Void, HashMap::new()),
             Node::Reference(sym) => (AtomicNode::Reference(sym), HashMap::new()),
-            Node::Addition(_, _)
-            | Node::Subtraction(_, _)
+            Node::Binary(_, _, _)
+            | Node::Unary(_, _)
             | Node::Begin(_, _)
             | Node::Let(_, _, _)
             | Node::Assignment(_, _) => {
@@ -61,8 +61,8 @@ impl Node {
         match self {
             Node::Void => ComplexNode::Atomic(AtomicNode::Void),
             Node::Number(n) => ComplexNode::Atomic(AtomicNode::Number(n)),
-            Node::Addition(b1, b2) => {
             Node::Boolean(b) => ComplexNode::Atomic(AtomicNode::Boolean(b)),
+            Node::Binary(op, b1, b2) => {
                 let tmp1 = (*b1).rco_atom(counter);
                 let tmp2 = (*b2).rco_atom(counter);
                 make_lets(
@@ -70,18 +70,17 @@ impl Node {
                         .into_iter()
                         .flat_map(|m| m.into_iter().collect::<Vec<_>>())
                         .collect::<Vec<_>>(),
-                    ComplexNode::Addition(tmp1.0, tmp2.0),
+                    ComplexNode::Binary(op, tmp1.0, tmp2.0),
                 )
             }
-            Node::Subtraction(b1, b2) => {
-                let tmp1 = (*b1).rco_atom(counter);
-                let tmp2 = (*b2).rco_atom(counter);
+            Node::Unary(op, b) => {
+                let tmp = (*b).rco_atom(counter);
                 make_lets(
-                    vec![tmp1.1.clone(), tmp2.1.clone()]
+                    vec![tmp.1.clone()]
                         .into_iter()
                         .flat_map(|m| m.into_iter().collect::<Vec<_>>())
-                        .collect::<Vec<_>>(),
-                    ComplexNode::Subtraction(tmp1.0, tmp2.0),
+                        .collect(),
+                    ComplexNode::Unary(op, tmp.0),
                 )
             }
             Node::Begin(exprs, last) => ComplexNode::Begin(
@@ -121,8 +120,10 @@ impl ComplexNode {
     fn stringify(&self) -> String {
         match self {
             ComplexNode::Atomic(node) => node.stringify(),
-            ComplexNode::Addition(n1, n2) => format!("(+ {} {})", n1.stringify(), n2.stringify()),
-            ComplexNode::Subtraction(n1, n2) => {
+            ComplexNode::Binary(BinaryOperation::Addition, n1, n2) => {
+                format!("(+ {} {})", n1.stringify(), n2.stringify())
+            }
+            ComplexNode::Binary(BinaryOperation::Subtraction, n1, n2) => {
                 format!("(- {} {})", n1.stringify(), n2.stringify())
             }
             ComplexNode::Let(sym, binding, body) => format!(
@@ -141,6 +142,7 @@ impl ComplexNode {
                 last.stringify()
             ),
             ComplexNode::Assignment(sym, rhs) => format!("(set! {} {})", sym, rhs.stringify()),
+            ComplexNode::Unary(UnaryOperation::Negation, n) => format!("(- {})", n.stringify()),
         }
     }
 }
