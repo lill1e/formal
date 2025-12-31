@@ -245,6 +245,25 @@ fn parse_expression(iter: &mut Peekable<IntoIter<Token>>) -> Node {
 
 fn parse_statement(iter: &mut Peekable<IntoIter<Token>>) -> Option<Node> {
     match iter.peek() {
+        Some(Token::Symbol(SymbolToken::LeftBrace)) => {
+            iter.next();
+            let mut statements: Vec<Node> = Vec::new();
+            while let Some(tok) = iter.peek() {
+                match tok {
+                    Token::Symbol(SymbolToken::RightBrace) => {
+                        iter.next();
+                        break;
+                    }
+                    _ => {
+                        if let Some(statement) = parse_top(iter) {
+                            statements.push(statement);
+                        }
+                    }
+                }
+            }
+            let last = statements.pop().unwrap_or(Node::Void);
+            Some(Node::Begin(statements, Box::new(last)))
+        }
         Some(_) => {
             let expr = parse_expression(iter);
             consume_semicolon(iter);
@@ -260,9 +279,7 @@ fn parse_binding(iter: &mut Peekable<IntoIter<Token>>) -> Option<Node> {
             Some(Token::Identifier(sym)) => {
                 if let Some(_) = consume_equals(iter) {
                     if let Some(rhs) = parse_statement(iter) {
-                        if let Some(body) = parse_top(iter) {
-                            return Some(Node::Let(sym, Box::new(rhs), Box::new(body)));
-                        }
+                        return Some(Node::Let(sym, Box::new(rhs), Box::new(parse_iter(iter))));
                     }
                     return None;
                 }
@@ -277,9 +294,19 @@ fn parse_binding(iter: &mut Peekable<IntoIter<Token>>) -> Option<Node> {
 fn parse_top(iter: &mut Peekable<IntoIter<Token>>) -> Option<Node> {
     match iter.peek() {
         Some(Token::Keyword(Keyword::Let)) => parse_binding(iter),
+        Some(Token::Symbol(SymbolToken::RightBrace)) => None,
         None => None,
         _ => parse_statement(iter),
     }
+}
+
+fn parse_iter(iter: &mut Peekable<IntoIter<Token>>) -> Node {
+    let mut statements: Vec<Node> = Vec::new();
+    while let Some(statement) = parse_top(iter) {
+        statements.push(statement);
+    }
+    let last = statements.pop().unwrap_or(Node::Void);
+    return Node::Begin(statements, Box::new(last));
 }
 
 pub fn parse(tokens: Vec<Token>) -> Node {
