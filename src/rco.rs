@@ -5,6 +5,7 @@ use crate::parser::Node;
 #[derive(Debug, Clone)]
 pub enum AtomicNode {
     Number(i32),
+    Boolean(bool),
     Void,
     Reference(String),
 }
@@ -38,6 +39,7 @@ impl Node {
     fn rco_atom(self, counter: &mut u32) -> (AtomicNode, HashMap<String, ComplexNode>) {
         match self {
             Node::Number(n) => (AtomicNode::Number(n), HashMap::new()),
+            Node::Boolean(b) => (AtomicNode::Boolean(b), HashMap::new()),
             Node::Void => (AtomicNode::Void, HashMap::new()),
             Node::Reference(sym) => (AtomicNode::Reference(sym), HashMap::new()),
             Node::Addition(_, _)
@@ -60,6 +62,7 @@ impl Node {
             Node::Void => ComplexNode::Atomic(AtomicNode::Void),
             Node::Number(n) => ComplexNode::Atomic(AtomicNode::Number(n)),
             Node::Addition(b1, b2) => {
+            Node::Boolean(b) => ComplexNode::Atomic(AtomicNode::Boolean(b)),
                 let tmp1 = (*b1).rco_atom(counter);
                 let tmp2 = (*b2).rco_atom(counter);
                 make_lets(
@@ -108,6 +111,7 @@ impl AtomicNode {
         match self {
             AtomicNode::Void => String::from("void"),
             AtomicNode::Number(n) => n.to_string(),
+            AtomicNode::Boolean(b) => b.to_string(),
             AtomicNode::Reference(sym) => sym.to_string(),
         }
     }

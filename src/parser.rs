@@ -7,6 +7,7 @@ pub enum Node {
     Number(i32),
     Addition(Box<Node>, Box<Node>),
     Subtraction(Box<Node>, Box<Node>),
+    Boolean(bool),
     Begin(Vec<Node>, Box<Node>),
     Let(String, Box<Node>, Box<Node>),
     Reference(String),
@@ -20,6 +21,7 @@ impl Node {
             Node::Number(n) => n.to_string(),
             Node::Addition(b1, b2) => format!("(+ {} {})", b1.stringify(), b2.stringify()),
             Node::Subtraction(b1, b2) => format!("(- {} {})", b1.stringify(), b2.stringify()),
+            Node::Boolean(b) => b.to_string(),
             Node::Begin(nodes, last) => format!(
                 "{}\n{}",
                 nodes
@@ -62,11 +64,13 @@ fn parse_unit(iter: &mut Peekable<IntoIter<Token>>) -> Node {
             t,
             Token::Number(_)
                 | Token::Identifier(_)
+                | Token::Boolean(_)
                 | Token::Symbol(SymbolToken::Void)
         )
     }) {
         match token {
             Token::Number(n) => Node::Number(n),
+            Token::Boolean(b) => Node::Boolean(b),
             Token::Identifier(ident) => Node::Reference(ident),
             Token::Symbol(SymbolToken::Void) => Node::Void,
             _ => Node::Void,

@@ -32,6 +32,7 @@ impl TerminalNode {
     pub fn select_instructions(&self) -> X86Value {
         match self {
             TerminalNode::Number(n) => X86Value::Immediate(*n as i32),
+            TerminalNode::Boolean(b) => X86Value::Immediate(if *b { 1 } else { 0 }),
             TerminalNode::Reference(sym) => X86Value::Var(sym.to_string()),
             TerminalNode::Void => X86Value::Immediate(0),
         }

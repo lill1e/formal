@@ -3,6 +3,7 @@ use crate::rco::{AtomicNode, ComplexNode};
 #[derive(Debug, Clone)]
 pub enum TerminalNode {
     Number(i32),
+    Boolean(bool),
     Reference(String),
     Void,
 }
@@ -27,6 +28,9 @@ impl AtomicNode {
             AtomicNode::Number(n) => {
                 OrderedNode::Return(ReturnableNode::Terminal(TerminalNode::Number(n)))
             }
+            AtomicNode::Boolean(b) => {
+                OrderedNode::Return(ReturnableNode::Terminal(TerminalNode::Boolean(b)))
+            }
             AtomicNode::Reference(sym) => OrderedNode::Return(ReturnableNode::Terminal(
                 TerminalNode::Reference(sym.to_string()),
             )),
@@ -45,6 +49,11 @@ impl AtomicNode {
                 ReturnableNode::Terminal(TerminalNode::Number(n)),
                 Box::new(tail),
             ),
+            AtomicNode::Boolean(b) => OrderedNode::Binding(
+                binding,
+                ReturnableNode::Terminal(TerminalNode::Boolean(b)),
+                Box::new(tail),
+            ),
             AtomicNode::Reference(sym) => OrderedNode::Binding(
                 binding,
                 ReturnableNode::Terminal(TerminalNode::Reference(sym)),
@@ -57,6 +66,7 @@ impl AtomicNode {
         match self {
             AtomicNode::Void => TerminalNode::Void,
             AtomicNode::Number(n) => TerminalNode::Number(n),
+            AtomicNode::Boolean(b) => TerminalNode::Boolean(b),
             AtomicNode::Reference(sym) => TerminalNode::Reference(sym.to_string()),
         }
     }
@@ -148,6 +158,7 @@ impl TerminalNode {
     fn stringify(&self) -> String {
         match self {
             TerminalNode::Number(n) => n.to_string(),
+            TerminalNode::Boolean(b) => b.to_string(),
             TerminalNode::Reference(sym) => sym.to_string(),
             TerminalNode::Void => String::from("void"),
         }

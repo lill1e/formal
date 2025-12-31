@@ -27,6 +27,13 @@ impl Returnable {
             _ => bail!("Invalid Type"),
         }
     }
+
+    fn unwrap_bool(&self) -> Result<bool> {
+        match self {
+            Returnable::Boolean(b) => Ok(*b),
+            _ => bail!("Invalid Type"),
+        }
+    }
 }
 
 impl Node {
@@ -36,6 +43,7 @@ impl Node {
             Node::Subtraction(n, m) => n.interpret(env) - m.interpret(env),
             Node::Void => Returnable::Void,
             Node::Number(n) => Returnable::Number(*n),
+            Node::Boolean(b) => Returnable::Boolean(*b),
             Node::Begin(nodes, last) => {
                 for node in nodes {
                     node.interpret(env);
