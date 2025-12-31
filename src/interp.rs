@@ -50,21 +50,21 @@ impl Node {
                 n.interpret(env).unwrap_int().unwrap() + m.interpret(env).unwrap_int().unwrap(),
             ),
             Node::Begin(nodes, last) => {
+                let mut snapshot = env.clone();
                 for node in nodes {
-                    node.interpret(env);
+                    node.interpret(&mut snapshot);
                 }
                 return last.interpret(env);
             }
             Node::Let(sym, rhs, body) => {
-                let rhs_new = rhs.interpret(env);
-                env.insert(sym.clone(), rhs_new);
+                env.insert(sym.clone(), rhs.interpret(&mut env.clone()));
                 body.interpret(env)
             }
             Node::Reference(sym) => env[sym].clone(),
             Node::Assignment(sym, rhs) => {
-                let v = rhs.interpret(env);
-                env.insert(sym.clone(), v);
-                return Returnable::Number(0);
+                env.insert(sym.clone(), rhs.interpret(&mut env.clone()));
+                return Returnable::Void;
+            }
             Node::Binary(BinaryOperation::Equals, n, m) => {
                 Returnable::Boolean(n.interpret(env) == m.interpret(env))
             }
