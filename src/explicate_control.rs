@@ -4,6 +4,7 @@ use crate::rco::{AtomicNode, ComplexNode};
 pub enum TerminalNode {
     Number(i32),
     Reference(String),
+    Void,
 }
 
 #[derive(Debug, Clone)]
@@ -22,6 +23,7 @@ pub enum OrderedNode {
 impl AtomicNode {
     pub fn explicate_tail(self) -> OrderedNode {
         match self {
+            AtomicNode::Void => OrderedNode::Return(ReturnableNode::Terminal(TerminalNode::Void)),
             AtomicNode::Number(n) => {
                 OrderedNode::Return(ReturnableNode::Terminal(TerminalNode::Number(n)))
             }
@@ -33,6 +35,11 @@ impl AtomicNode {
 
     pub fn explicate_assign(self, binding: String, tail: OrderedNode) -> OrderedNode {
         match self {
+            AtomicNode::Void => OrderedNode::Binding(
+                binding,
+                ReturnableNode::Terminal(TerminalNode::Void),
+                Box::new(tail),
+            ),
             AtomicNode::Number(n) => OrderedNode::Binding(
                 binding,
                 ReturnableNode::Terminal(TerminalNode::Number(n)),
@@ -48,6 +55,7 @@ impl AtomicNode {
 
     fn as_terminal(self) -> TerminalNode {
         match self {
+            AtomicNode::Void => TerminalNode::Void,
             AtomicNode::Number(n) => TerminalNode::Number(n),
             AtomicNode::Reference(sym) => TerminalNode::Reference(sym.to_string()),
         }
@@ -63,6 +71,7 @@ impl ComplexNode {
             ComplexNode::Begin(exprs, last) => {
                 exprs.iter().map(|e| e.is_pure()).all(|v| v) && last.is_pure()
             }
+            ComplexNode::Assignment(_, _) => false,
         }
     }
 
@@ -93,6 +102,9 @@ impl ComplexNode {
                 }
                 return tail;
             }
+            ComplexNode::Assignment(_, _) => self.explicate_effect(OrderedNode::Return(
+                ReturnableNode::Terminal(TerminalNode::Void),
+            )),
         }
     }
 
@@ -119,6 +131,11 @@ impl ComplexNode {
                 }
                 return seq_tail;
             }
+            ComplexNode::Assignment(_, _) => self.explicate_effect(OrderedNode::Binding(
+                binding,
+                ReturnableNode::Terminal(TerminalNode::Void),
+                Box::new(tail),
+            )),
         }
     }
 
@@ -132,6 +149,7 @@ impl TerminalNode {
         match self {
             TerminalNode::Number(n) => n.to_string(),
             TerminalNode::Reference(sym) => sym.to_string(),
+            TerminalNode::Void => String::from("void"),
         }
     }
 }
