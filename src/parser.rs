@@ -226,6 +226,17 @@ fn parse_eq(iter: &mut Peekable<IntoIter<Token>>) -> Node {
 
 fn parse_assigment(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     let mut lhs = parse_eq(iter);
+    if let Some(_) = consume_equals(iter) {
+        let rhs = parse_eq(iter);
+        lhs = Node::Assignment(
+            match lhs {
+                Node::Reference(var) => var,
+                _ => String::from("_"),
+            },
+            Box::new(rhs),
+        )
+    }
+    return lhs;
 }
 
 fn parse_expression(iter: &mut Peekable<IntoIter<Token>>) -> Node {
