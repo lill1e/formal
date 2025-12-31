@@ -5,6 +5,7 @@ use crate::parser::Node;
 #[derive(Debug, Clone)]
 pub enum AtomicNode {
     Number(i32),
+    Void,
     Reference(String),
 }
 
@@ -15,6 +16,7 @@ pub enum ComplexNode {
     Let(String, Box<ComplexNode>, Box<ComplexNode>),
     Atomic(AtomicNode),
     Begin(Vec<ComplexNode>, Box<ComplexNode>),
+    Assignment(String, Box<ComplexNode>),
 }
 
 fn make_lets(lets: Vec<(String, ComplexNode)>, after: ComplexNode) -> ComplexNode {
@@ -36,11 +38,13 @@ impl Node {
     fn rco_atom(self, counter: &mut u32) -> (AtomicNode, HashMap<String, ComplexNode>) {
         match self {
             Node::Number(n) => (AtomicNode::Number(n), HashMap::new()),
+            Node::Void => (AtomicNode::Void, HashMap::new()),
             Node::Reference(sym) => (AtomicNode::Reference(sym), HashMap::new()),
             Node::Addition(_, _)
             | Node::Subtraction(_, _)
             | Node::Begin(_, _)
-            | Node::Let(_, _, _) => {
+            | Node::Let(_, _, _)
+            | Node::Assignment(_, _) => {
                 let binding = format!("tmp.{}", counter);
                 *counter += 1;
                 return (
@@ -53,6 +57,7 @@ impl Node {
 
     fn rco_exp(self, counter: &mut u32) -> ComplexNode {
         match self {
+            Node::Void => ComplexNode::Atomic(AtomicNode::Void),
             Node::Number(n) => ComplexNode::Atomic(AtomicNode::Number(n)),
             Node::Addition(b1, b2) => {
                 let tmp1 = (*b1).rco_atom(counter);
@@ -86,6 +91,9 @@ impl Node {
                 Box::new(body.rco_exp(counter)),
             ),
             Node::Reference(sym) => ComplexNode::Atomic(AtomicNode::Reference(sym)),
+            Node::Assignment(sym, rhs) => {
+                ComplexNode::Assignment(sym, Box::new(rhs.rco_exp(counter)))
+            }
         }
     }
 
@@ -98,6 +106,7 @@ impl Node {
 impl AtomicNode {
     fn stringify(&self) -> String {
         match self {
+            AtomicNode::Void => String::from("void"),
             AtomicNode::Number(n) => n.to_string(),
             AtomicNode::Reference(sym) => sym.to_string(),
         }
@@ -127,6 +136,7 @@ impl ComplexNode {
                     .join("\n"),
                 last.stringify()
             ),
+            ComplexNode::Assignment(sym, rhs) => format!("(set! {} {})", sym, rhs.stringify()),
         }
     }
 }

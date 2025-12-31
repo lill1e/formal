@@ -8,6 +8,7 @@ impl Node {
             Node::Number(n) => *n,
             Node::Addition(n, m) => n.interpret(env) + m.interpret(env),
             Node::Subtraction(n, m) => n.interpret(env) - m.interpret(env),
+            Node::Void => Returnable::Void,
             Node::Begin(nodes, last) => {
                 for node in nodes {
                     node.interpret(env);
@@ -19,7 +20,12 @@ impl Node {
                 env.insert(sym.clone(), rhs_new);
                 body.interpret(env)
             }
-            Node::Reference(sym) => env[sym],
+            Node::Reference(sym) => env[sym].clone(),
+            Node::Assignment(sym, rhs) => {
+                let v = rhs.interpret(env);
+                env.insert(sym.clone(), v);
+                return Returnable::Number(0);
+            }
         }
     }
 }

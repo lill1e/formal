@@ -3,17 +3,20 @@ use std::{iter::Peekable, vec::IntoIter};
 
 #[derive(Debug, Clone)]
 pub enum Node {
+    Void,
     Number(i32),
     Addition(Box<Node>, Box<Node>),
     Subtraction(Box<Node>, Box<Node>),
     Begin(Vec<Node>, Box<Node>),
     Let(String, Box<Node>, Box<Node>),
     Reference(String),
+    Assignment(String, Box<Node>),
 }
 
 impl Node {
     fn stringify(&self) -> String {
         match self {
+            Node::Void => String::from("void"),
             Node::Number(n) => n.to_string(),
             Node::Addition(b1, b2) => format!("(+ {} {})", b1.stringify(), b2.stringify()),
             Node::Subtraction(b1, b2) => format!("(- {} {})", b1.stringify(), b2.stringify()),
@@ -30,6 +33,7 @@ impl Node {
                 format!("(let [({} {})] {})", sym, rhs.stringify(), body.stringify())
             }
             Node::Reference(sym) => sym.clone(),
+            Node::Assignment(sym, rhs) => format!("(set! {} {})", sym, rhs.stringify()),
         }
     }
 }
@@ -53,11 +57,19 @@ fn consume_equals(iter: &mut Peekable<IntoIter<Token>>) -> Option<Token> {
 }
 
 fn parse_unit(iter: &mut Peekable<IntoIter<Token>>) -> Node {
-    if let Some(token) = iter.next_if(|t| matches!(t, Token::Number(_) | Token::Identifier(_))) {
+    if let Some(token) = iter.next_if(|t| {
+        matches!(
+            t,
+            Token::Number(_)
+                | Token::Identifier(_)
+                | Token::Symbol(SymbolToken::Void)
+        )
+    }) {
         match token {
             Token::Number(n) => Node::Number(n),
             Token::Identifier(ident) => Node::Reference(ident),
-            _ => Node::Number(0),
+            Token::Symbol(SymbolToken::Void) => Node::Void,
+            _ => Node::Void,
         }
     } else {
         panic!("Invalid Program");
@@ -98,8 +110,20 @@ fn parse_binary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     return lhs;
 }
 
-fn parse_expression(iter: &mut Peekable<IntoIter<Token>>) -> Node {
+fn parse_cmp(iter: &mut Peekable<IntoIter<Token>>) -> Node {
     return parse_binary(iter);
+}
+
+fn parse_eq(iter: &mut Peekable<IntoIter<Token>>) -> Node {
+    return parse_binary(iter);
+}
+
+fn parse_assigment(iter: &mut Peekable<IntoIter<Token>>) -> Node {
+    let mut lhs = parse_eq(iter);
+}
+
+fn parse_expression(iter: &mut Peekable<IntoIter<Token>>) -> Node {
+    return parse_assigment(iter);
 }
 
 fn parse_statement(iter: &mut Peekable<IntoIter<Token>>) -> Option<Node> {
@@ -147,6 +171,6 @@ pub fn parse(tokens: Vec<Token>) -> Node {
     while let Some(statement) = parse_top(&mut iter) {
         statements.push(statement);
     }
-    let last = statements.pop().unwrap_or(Node::Number(0));
+    let last = statements.pop().unwrap_or(Node::Void);
     return Node::Begin(statements, Box::new(last));
 }

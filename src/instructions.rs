@@ -33,6 +33,7 @@ impl TerminalNode {
         match self {
             TerminalNode::Number(n) => X86Value::Immediate(*n as i32),
             TerminalNode::Reference(sym) => X86Value::Var(sym.to_string()),
+            TerminalNode::Void => X86Value::Immediate(0),
         }
     }
 }
