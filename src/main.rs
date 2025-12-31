@@ -98,7 +98,11 @@ fn main() -> Result<()> {
             .patch_instructions()
             .generate_asm(assign_homes.1);
         if args.debug {
-            println!("Patch Instructions: {:?}", patch_instructions);
+            println!("Patch Instructions:");
+            for patched_block in &patch_instructions {
+                println!("{}: {:?}", patched_block.label, patched_block.instructions);
+            }
+            println!("");
         }
         let blocks_str = stringify_blocks(&patch_instructions);
         if args.debug {
