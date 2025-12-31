@@ -35,7 +35,7 @@ pub enum Node {
 impl Node {
     fn stringify(&self) -> String {
         match self {
-            Node::Void => String::from("void"),
+            Node::Void => String::from("(void)"),
             Node::Number(n) => n.to_string(),
             Node::Boolean(b) => b.to_string(),
             Node::Unary(UnaryOperation::Negation, b) => format!("(- {})", b.stringify()),
