@@ -102,7 +102,6 @@ pub fn lex(s: String) -> Result<Vec<Token>> {
                     _ => bail!("Invalid Symbol"),
                 }
             } else {
-                dbg!(&c);
                 match lex_symbol(&c) {
                     Some(tok) => tokens.push(Token::Symbol(tok)),
                     None => bail!("Uncheck Clause (Symbol Lexing)"),
