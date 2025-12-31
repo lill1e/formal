@@ -5,6 +5,7 @@ mod lexer;
 mod parser;
 mod passes;
 mod rco;
+mod repl;
 
 use anyhow::{Result, anyhow, bail};
 use clap::Parser;
@@ -50,10 +51,30 @@ struct Args {
     // Whether to display the result of each compiler pass
     #[arg(short, long)]
     debug: bool,
+
+    /// Whether to run a repl (ignores input)
+    #[arg(long)]
+    repl: bool,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    if args.repl {
+        let program = repl::start()?;
+        println!("Input Program:\n{}", &program);
+        let lexical = lex(program.clone())?;
+        if args.lex {
+            println!("Lexical Analysis: {:?}\n", lexical);
+        }
+        let ast = passify(parse(lexical.clone()), args.debug);
+        if args.parse {
+            println!("Abstract Syntax Tree:\n{:?}\n", ast);
+        }
+        println!("Pretty Printed AST: {}\n", ast.to_string());
+        println!("Evaluated AST: {:?}\n", ast.interpret(&mut HashMap::new()));
+
+        return Ok(());
+    }
     let program = fs::read_to_string(args.input)?;
     if args.lex {
         println!(
