@@ -3,6 +3,7 @@ mod instructions;
 mod interp;
 mod lexer;
 mod parser;
+mod passes;
 mod rco;
 
 use anyhow::{Result, anyhow, bail};
@@ -19,7 +20,7 @@ use instructions::Instructions;
 use lexer::lex;
 use parser::parse;
 
-use crate::instructions::Block;
+use crate::{instructions::Block, passes::passify};
 
 fn stringify_blocks(blocks: &Vec<Block>) -> String {
     return blocks
@@ -58,24 +59,28 @@ fn main() -> Result<()> {
         println!(
             "Input Program:\n{}\nLexical Analysis: {:?}",
             program.clone(),
-            lex(program)
+            lex(program)?
         );
     } else if args.parse {
         let p = program.clone();
-        let l = lex(program);
+        let l = lex(program)?;
         let ast = parse(l.clone());
         println!(
             "Input Program:\n{}\nLexical Analysis: {:?}\nAbstract Syntax Tree: {:?}",
             p, l, ast
         );
     } else {
-        let lex_result = lex(program.clone());
+        let lex_result = lex(program.clone())?;
         if args.debug && !args.lex {
             println!("Lexical Analysis (Debug): {:?}", lex_result);
         }
-        let ast = parse(lex_result);
+        let parsed_ast = parse(lex_result);
         if args.debug && !args.parse {
-            println!("Abstract Syntax Tree (Debug):\n{}", ast.to_string());
+            println!("Abstract Syntax Tree (Debug):\n{}", parsed_ast.to_string());
+        }
+        let ast = passify(parsed_ast, args.debug);
+        if args.debug {
+            println!("Pass Results (Debug):\n{}", ast.to_string());
         }
         let rco = ast.clone().remove_complex_operands();
         if args.debug {
