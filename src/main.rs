@@ -62,11 +62,11 @@ fn main() -> Result<()> {
     if args.repl {
         let program = repl::start()?;
         println!("Input Program:\n{}", &program);
-        let lexical = lex(program.clone())?;
+        let lexical = lex(program)?;
         if args.lex {
             println!("Lexical Analysis: {:?}\n", lexical);
         }
-        let ast = passify(parse(lexical.clone()), args.debug);
+        let ast = passify(parse(lexical), args.debug);
         if args.parse {
             println!("Abstract Syntax Tree:\n{:?}\n", ast);
         }
@@ -111,11 +111,11 @@ fn main() -> Result<()> {
         if args.debug {
             println!("Explicate Control:\n{}", explicate_control.to_string());
         }
-        let select_instructions = explicate_control.clone().select_instructions();
+        let select_instructions = explicate_control.select_instructions();
         if args.debug {
             println!("Select Instructions: {:?}", select_instructions);
         }
-        let assign_homes = select_instructions.clone().assign_homes();
+        let assign_homes = select_instructions.assign_homes();
         if args.debug {
             println!("Assign Homes: {:?}", assign_homes.0);
         }
