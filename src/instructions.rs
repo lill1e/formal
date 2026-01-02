@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    explicate_control::{OrderedNode, ReturnableNode, TerminalNode},
+    explicate_control::{OrderedNode, ProgramNode, ReturnableNode, TerminalNode},
     parser::{BinaryOperation, UnaryOperation},
 };
 
@@ -43,6 +43,7 @@ pub enum Instruction {
     Negq(X86Value),
     Retq,
     Jmp(String),
+    JmpIf(CmpType, String),
     Pushq(X86Value),
     Popq(X86Value),
     Cmpq(X86Value, X86Value),
@@ -126,12 +127,22 @@ impl ReturnableNode {
 impl OrderedNode {
     pub fn select_instructions(self) -> Vec<Instruction> {
         match self {
-            OrderedNode::Return(val) => val.select_instructions(X86Value::Register(Register::Rax)),
+            OrderedNode::Return(val) => {
+                let mut instrs = val.select_instructions(X86Value::Register(Register::Rax));
+                instrs.push(Instruction::Jmp(String::from("conclusion")));
+                instrs
+            }
             OrderedNode::Binding(sym, binding, tail) => {
                 let mut instrs = binding.select_instructions(X86Value::Var(sym));
                 instrs.append(&mut tail.select_instructions());
                 instrs
             }
+            OrderedNode::If(op, lhs, rhs, conseq, alt) => vec![
+                Instruction::Cmpq(rhs.select_instructions(), lhs.select_instructions()),
+                Instruction::JmpIf(op, conseq),
+                Instruction::Jmp(alt),
+            ],
+            OrderedNode::Goto(label) => vec![Instruction::Jmp(label)],
         }
     }
 }
@@ -179,7 +190,7 @@ impl Instruction {
     fn has_var(&self) -> bool {
         match self {
             Instruction::Retq => false,
-            Instruction::Jmp(_) => false,
+            Instruction::Jmp(_) | Instruction::JmpIf(_, _) => false,
             Instruction::Set(_, _) => false,
             Instruction::Movq(lhs, rhs)
             | Instruction::Addq(lhs, rhs)
@@ -297,6 +308,7 @@ impl Instruction {
             }
             Instruction::Retq
             | Instruction::Jmp(_)
+            | Instruction::JmpIf(_, _)
             | Instruction::Pushq(_)
             | Instruction::Popq(_)
             | Instruction::Set(_, _) => self,
@@ -308,150 +320,173 @@ impl Instruction {
 pub struct Block {
     pub label: String,
     pub instructions: Vec<Instruction>,
+    pub vars_n: usize,
 }
 
 pub trait Instructions {
     fn allocate_homes(&self) -> HashMap<String, i32>;
-    fn assign_homes(self) -> (Self, usize)
+    fn assign_homes(self) -> Self
     where
         Self: Sized;
     fn patch_instructions(self) -> Self;
-    fn generate_asm(self, vars: usize) -> Vec<Block>;
+    fn generate_asm(self) -> Vec<Block>;
 }
 
-impl Instructions for Vec<Instruction> {
+impl Instructions for Vec<Block> {
     fn allocate_homes(&self) -> HashMap<String, i32> {
-        let all_vars = self
-            .iter()
-            .flat_map(|instr| match instr {
-                Instruction::Retq => Vec::new(),
-                Instruction::Jmp(_) => Vec::new(),
-                Instruction::Set(_, _) => Vec::new(),
-                Instruction::Addq(lhs, rhs) | Instruction::Subq(lhs, rhs) => {
-                    let mut vars = Vec::new();
-                    match lhs {
-                        X86Value::Var(v) => {
-                            vars.push(v);
+        let mut vars_union = HashSet::new();
+        for block in self {
+            let all_vars = block
+                .instructions
+                .iter()
+                .flat_map(|instr| match instr {
+                    Instruction::Retq => Vec::new(),
+                    Instruction::Jmp(_) | Instruction::JmpIf(_, _) => Vec::new(),
+                    Instruction::Set(_, _) => Vec::new(),
+                    Instruction::Addq(lhs, rhs) | Instruction::Subq(lhs, rhs) => {
+                        let mut vars = Vec::new();
+                        match lhs {
+                            X86Value::Var(v) => {
+                                vars.push(v);
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    }
-                    match rhs {
-                        X86Value::Var(v) => {
-                            vars.push(v);
+                        match rhs {
+                            X86Value::Var(v) => {
+                                vars.push(v);
+                            }
+                            _ => {}
                         }
-                        _ => {}
+                        return vars;
                     }
-                    return vars;
-                }
-                Instruction::Movq(lhs, rhs) => {
-                    let mut vars = Vec::new();
-                    match lhs {
-                        X86Value::Var(v) => {
-                            vars.push(v);
+                    Instruction::Movq(lhs, rhs) => {
+                        let mut vars = Vec::new();
+                        match lhs {
+                            X86Value::Var(v) => {
+                                vars.push(v);
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    }
-                    match rhs {
-                        X86Value::Var(v) => {
-                            vars.push(v);
+                        match rhs {
+                            X86Value::Var(v) => {
+                                vars.push(v);
+                            }
+                            _ => {}
                         }
-                        _ => {}
+                        return vars;
                     }
-                    return vars;
-                }
-                Instruction::Pushq(v) => match v {
-                    X86Value::Var(v_name) => vec![v_name],
-                    _ => Vec::new(),
-                },
-                Instruction::Negq(v) => match v {
-                    X86Value::Var(v_name) => vec![v_name],
-                    _ => Vec::new(),
-                },
-                Instruction::Popq(v) => match v {
-                    X86Value::Var(v_name) => vec![v_name],
-                    _ => Vec::new(),
-                },
-                Instruction::Movzbq(v, _) => match v {
-                    X86Value::Var(v_name) => vec![v_name],
-                    _ => Vec::new(),
-                },
-                Instruction::Cmpq(lhs, rhs) => {
-                    let mut vars = Vec::new();
-                    match lhs {
-                        X86Value::Var(v) => {
-                            vars.push(v);
+                    Instruction::Pushq(v) => match v {
+                        X86Value::Var(v_name) => vec![v_name],
+                        _ => Vec::new(),
+                    },
+                    Instruction::Negq(v) => match v {
+                        X86Value::Var(v_name) => vec![v_name],
+                        _ => Vec::new(),
+                    },
+                    Instruction::Popq(v) => match v {
+                        X86Value::Var(v_name) => vec![v_name],
+                        _ => Vec::new(),
+                    },
+                    Instruction::Movzbq(v, _) => match v {
+                        X86Value::Var(v_name) => vec![v_name],
+                        _ => Vec::new(),
+                    },
+                    Instruction::Cmpq(lhs, rhs) => {
+                        let mut vars = Vec::new();
+                        match lhs {
+                            X86Value::Var(v) => {
+                                vars.push(v);
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    }
-                    match rhs {
-                        X86Value::Var(v) => {
-                            vars.push(v);
+                        match rhs {
+                            X86Value::Var(v) => {
+                                vars.push(v);
+                            }
+                            _ => {}
                         }
-                        _ => {}
+                        return vars;
                     }
-                    return vars;
-                }
-                Instruction::Xorq(lhs, rhs) => {
-                    let mut vars = Vec::new();
-                    match lhs {
-                        X86Value::Var(v) => {
-                            vars.push(v);
+                    Instruction::Xorq(lhs, rhs) => {
+                        let mut vars = Vec::new();
+                        match lhs {
+                            X86Value::Var(v) => {
+                                vars.push(v);
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    }
-                    match rhs {
-                        X86Value::Var(v) => {
-                            vars.push(v);
+                        match rhs {
+                            X86Value::Var(v) => {
+                                vars.push(v);
+                            }
+                            _ => {}
                         }
-                        _ => {}
+                        return vars;
                     }
-                    return vars;
-                }
-            })
-            .collect::<HashSet<&String>>();
+                })
+                .collect::<HashSet<&String>>();
+            for v in all_vars {
+                vars_union.insert(v);
+            }
+        }
         let mut var_mapping: HashMap<String, i32> = HashMap::new();
         let mut curr: i32 = 0;
-        for var in all_vars {
+        for var in vars_union {
             curr += 8;
             var_mapping.insert(var.clone(), -1 * curr);
         }
         return var_mapping;
     }
 
-    fn assign_homes(self) -> (Self, usize) {
+    fn assign_homes(self) -> Self {
         let all_vars = self.allocate_homes();
-        return (
-            self.iter()
-                .map(|instr| instr.clone().assign_homes(&all_vars))
-                .collect(),
-            all_vars.len(),
-        );
+        return self
+            .iter()
+            .map(|block| Block {
+                instructions: block
+                    .instructions
+                    .iter()
+                    .map(|instr| instr.clone().assign_homes(&all_vars))
+                    .collect::<Vec<_>>(),
+                label: block.label.clone(),
+                vars_n: all_vars.len(),
+            })
+            .collect();
     }
 
     fn patch_instructions(self) -> Self {
         self.into_iter()
-            .flat_map(|instr| match instr {
-                Instruction::Movq(lhs, rhs) if lhs == rhs => vec![],
-                Instruction::Movq(lhs, rhs) if lhs.is_memory() && rhs.is_memory() => {
-                    vec![
-                        Instruction::Movq(lhs.clone(), X86Value::Register(Register::Rax)),
-                        Instruction::Movq(X86Value::Register(Register::Rax), rhs.clone()),
-                    ]
-                }
-                Instruction::Addq(lhs, rhs) if lhs.is_memory() && rhs.is_memory() => {
-                    vec![
-                        Instruction::Movq(rhs.clone(), X86Value::Register(Register::Rax)),
-                        Instruction::Addq(lhs.clone(), X86Value::Register(Register::Rax)),
-                        Instruction::Movq(X86Value::Register(Register::Rax), rhs.clone()),
-                    ]
-                }
-                _ => vec![instr],
+            .map(|block| Block {
+                instructions: block
+                    .instructions
+                    .iter()
+                    .flat_map(|instr| match instr {
+                        Instruction::Movq(lhs, rhs) if lhs == rhs => vec![],
+                        Instruction::Movq(lhs, rhs) if lhs.is_memory() && rhs.is_memory() => {
+                            vec![
+                                Instruction::Movq(lhs.clone(), X86Value::Register(Register::Rax)),
+                                Instruction::Movq(X86Value::Register(Register::Rax), rhs.clone()),
+                            ]
+                        }
+                        Instruction::Addq(lhs, rhs) if lhs.is_memory() && rhs.is_memory() => {
+                            vec![
+                                Instruction::Movq(rhs.clone(), X86Value::Register(Register::Rax)),
+                                Instruction::Addq(lhs.clone(), X86Value::Register(Register::Rax)),
+                                Instruction::Movq(X86Value::Register(Register::Rax), rhs.clone()),
+                            ]
+                        }
+                        _ => vec![instr.clone()],
+                    })
+                    .collect::<Vec<_>>(),
+                label: block.label,
+                vars_n: block.vars_n,
             })
             .collect()
     }
 
-    fn generate_asm(self, vars: usize) -> Vec<Block> {
-        let mut blocks = Vec::new();
+    fn generate_asm(self) -> Vec<Block> {
+        let mut blocks = self.iter().map(|block| block.clone()).collect::<Vec<_>>();
+        let vars = blocks[0].vars_n;
         let stack_space = if (vars * 8) % 16 == 0 {
             (vars * 8) as i32
         } else {
@@ -471,12 +506,7 @@ impl Instructions for Vec<Instruction> {
                 ),
                 Instruction::Jmp(String::from("start")),
             ],
-        });
-        let mut instrs = self.clone();
-        instrs.push(Instruction::Jmp(String::from("conclusion")));
-        blocks.push(Block {
-            label: String::from("start"),
-            instructions: instrs,
+            vars_n: vars,
         });
         blocks.push(Block {
             label: String::from("conclusion"),
@@ -488,8 +518,22 @@ impl Instructions for Vec<Instruction> {
                 Instruction::Popq(X86Value::Register(Register::Rbp)),
                 Instruction::Retq,
             ],
+            vars_n: vars,
         });
         return blocks;
+    }
+}
+
+impl ProgramNode {
+    pub fn select_instructions(self) -> Vec<Block> {
+        self.blocks
+            .iter()
+            .map(|block| Block {
+                label: block.0.clone(),
+                instructions: block.1.clone().select_instructions(),
+                vars_n: 0,
+            })
+            .collect()
     }
 }
 
@@ -552,6 +596,17 @@ impl Instruction {
             Instruction::Xorq(lhs, rhs) => format!("xorq {}, {}", lhs.to_string(), rhs.to_string()),
             Instruction::Negq(v) => format!("negq {}", v.to_string()),
             Instruction::Set(cmp, dest) => format!("set{} {}", cmp.to_string(), dest.to_string()),
+            Instruction::JmpIf(cmp, label) => format!(
+                "j{} {}",
+                match cmp {
+                    CmpType::Equals => "e",
+                    CmpType::Less => "l",
+                    CmpType::LessEqual => "le",
+                    CmpType::Greater => "g",
+                    CmpType::GreaterEqual => "ge",
+                },
+                label
+            ),
         }
     }
 }

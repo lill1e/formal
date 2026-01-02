@@ -30,6 +30,7 @@ pub enum Node {
     Assignment(String, Box<Node>),
     Unary(UnaryOperation, Box<Node>),
     Binary(BinaryOperation, Box<Node>, Box<Node>),
+    If(Box<Node>, Box<Node>, Box<Node>),
 }
 
 impl Node {
@@ -79,6 +80,12 @@ impl Node {
             Node::Binary(BinaryOperation::LessEqual, b1, b2) => {
                 format!("(<= {} {})", b1.stringify(), b2.stringify())
             }
+            Node::If(cond, conseq, alt) => format!(
+                "(if {} {} {})",
+                cond.stringify(),
+                conseq.stringify(),
+                alt.stringify()
+            ),
         }
     }
 }
@@ -272,6 +279,20 @@ fn parse_statement(iter: &mut Peekable<IntoIter<Token>>) -> Option<Node> {
             }
             let last = statements.pop().unwrap_or(Node::Void);
             Some(Node::Begin(statements, Box::new(last)))
+        }
+        Some(Token::Keyword(Keyword::If)) => {
+            iter.next();
+            Some(Node::If(
+                Box::new(parse_expression(iter)),
+                Box::new(parse_statement(iter).unwrap_or(Node::Void)),
+                Box::new(match iter.peek() {
+                    Some(Token::Keyword(Keyword::Else)) => {
+                        iter.next();
+                        parse_statement(iter).unwrap_or(Node::Void)
+                    }
+                    _ => Node::Void,
+                }),
+            ))
         }
         Some(_) => {
             let expr = parse_expression(iter);

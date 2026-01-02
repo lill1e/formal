@@ -86,6 +86,8 @@ pub fn lex_word(iter: &mut Peekable<Chars<'_>>) -> Token {
         "true" => Token::Boolean(true),
         "false" => Token::Boolean(false),
         "void" => Token::Symbol(SymbolToken::Void),
+        "if" => Token::Keyword(Keyword::If),
+        "else" => Token::Keyword(Keyword::Else),
         _ => Token::Identifier(acc),
     }
 }

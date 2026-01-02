@@ -18,6 +18,7 @@ pub enum ComplexNode {
     Atomic(AtomicNode),
     Begin(Vec<ComplexNode>, Box<ComplexNode>),
     Assignment(String, Box<ComplexNode>),
+    If(Box<ComplexNode>, Box<ComplexNode>, Box<ComplexNode>),
 }
 
 fn make_lets(lets: Vec<(String, ComplexNode)>, after: ComplexNode) -> ComplexNode {
@@ -46,7 +47,8 @@ impl Node {
             | Node::Unary(_, _)
             | Node::Begin(_, _)
             | Node::Let(_, _, _)
-            | Node::Assignment(_, _) => {
+            | Node::Assignment(_, _)
+            | Node::If(_, _, _) => {
                 let binding = format!("tmp.{}", counter);
                 *counter += 1;
                 return (
@@ -96,6 +98,11 @@ impl Node {
             Node::Assignment(sym, rhs) => {
                 ComplexNode::Assignment(sym, Box::new(rhs.rco_exp(counter)))
             }
+            Node::If(cond, conseq, alt) => ComplexNode::If(
+                Box::new(cond.rco_exp(counter)),
+                Box::new(conseq.rco_exp(counter)),
+                Box::new(alt.rco_exp(counter)),
+            ),
         }
     }
 
@@ -163,6 +170,12 @@ impl ComplexNode {
             ComplexNode::Binary(BinaryOperation::LessEqual, n1, n2) => {
                 format!("(<= {} {})", n1.stringify(), n2.stringify())
             }
+            ComplexNode::If(cond, conseq, alt) => format!(
+                "(if {} {} {})",
+                cond.stringify(),
+                conseq.stringify(),
+                alt.stringify()
+            ),
         }
     }
 }

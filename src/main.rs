@@ -107,7 +107,7 @@ fn main() -> Result<()> {
         if args.debug {
             println!("Remove Complex Operands:\n{}", rco.to_string());
         }
-        let explicate_control = rco.clone().explicate_control();
+        let explicate_control = rco.explicate_control()?;
         if args.debug {
             println!("Explicate Control:\n{}", explicate_control.to_string());
         }
@@ -117,12 +117,16 @@ fn main() -> Result<()> {
         }
         let assign_homes = select_instructions.assign_homes();
         if args.debug {
-            println!("Assign Homes: {:?}", assign_homes.0);
+            println!(
+                "Assign Homes:\n{}",
+                assign_homes
+                    .iter()
+                    .map(|block| format!("{}: {:?}", block.label, block.instructions))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
         }
-        let patch_instructions = assign_homes
-            .0
-            .patch_instructions()
-            .generate_asm(assign_homes.1);
+        let patch_instructions = assign_homes.patch_instructions().generate_asm();
         if args.debug {
             println!("Patch Instructions:");
             for patched_block in &patch_instructions {

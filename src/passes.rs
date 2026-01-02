@@ -25,6 +25,11 @@ fn remove_redundant_begins(ast: Node) -> Node {
             Box::new(remove_redundant_begins(*x)),
             Box::new(remove_redundant_begins(*y)),
         ),
+        Node::If(cond, conseq, alt) => Node::If(
+            Box::new(remove_redundant_begins(*cond)),
+            Box::new(remove_redundant_begins(*conseq)),
+            Box::new(remove_redundant_begins(*alt)),
+        ),
     }
 }
 

@@ -89,6 +89,13 @@ impl Node {
             Node::Binary(BinaryOperation::LessEqual, b1, b2) => Returnable::Boolean(
                 b1.interpret(env).unwrap_int().unwrap() <= b2.interpret(env).unwrap_int().unwrap(),
             ),
+            Node::If(cond, conseq, alt) => {
+                if cond.interpret(env).unwrap_bool().unwrap() {
+                    conseq.interpret(env)
+                } else {
+                    alt.interpret(env)
+                }
+            }
         }
     }
 }
