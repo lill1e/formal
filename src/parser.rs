@@ -179,7 +179,6 @@ fn parse_binary(iter: &mut Peekable<IntoIter<Token>>) -> Node {
 }
 
 fn parse_cmp(iter: &mut Peekable<IntoIter<Token>>) -> Node {
-    return parse_binary(iter);
     let mut lhs = parse_binary(iter);
     while let Some(tok) = iter.next_if(|t| {
         matches!(
@@ -213,7 +212,6 @@ fn parse_cmp(iter: &mut Peekable<IntoIter<Token>>) -> Node {
 }
 
 fn parse_eq(iter: &mut Peekable<IntoIter<Token>>) -> Node {
-    return parse_binary(iter);
     let mut lhs = parse_cmp(iter);
     while let Some(tok) = iter.next_if(|t| {
         matches!(
