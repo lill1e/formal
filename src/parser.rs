@@ -109,6 +109,7 @@ fn parse_unit(iter: &mut Peekable<IntoIter<Token>>) -> Node {
                 | Token::Identifier(_)
                 | Token::Boolean(_)
                 | Token::Symbol(SymbolToken::Void)
+                | Token::Symbol(SymbolToken::LeftParen)
         )
     }) {
         match token {
@@ -116,6 +117,16 @@ fn parse_unit(iter: &mut Peekable<IntoIter<Token>>) -> Node {
             Token::Boolean(b) => Node::Boolean(b),
             Token::Identifier(ident) => Node::Reference(ident),
             Token::Symbol(SymbolToken::Void) => Node::Void,
+            Token::Symbol(SymbolToken::LeftParen) => {
+                let expr = parse_expression(iter);
+                match iter.peek() {
+                    Some(Token::Symbol(SymbolToken::RightParen)) => {
+                        iter.next();
+                    }
+                    _ => panic!("Expected Closing Parenthesis"),
+                }
+                expr
+            }
             _ => Node::Void,
         }
     } else {

@@ -12,6 +12,8 @@ pub enum SymbolToken {
     NotEquals,
     LeftBrace,
     RightBrace,
+    LeftParen,
+    RightParen,
     Void,
     Greater,
     GreaterEqual,
@@ -65,6 +67,8 @@ pub fn lex_symbol(c: &char) -> Option<SymbolToken> {
         '=' => Some(SymbolToken::Equals),
         '{' => Some(SymbolToken::LeftBrace),
         '}' => Some(SymbolToken::RightBrace),
+        '(' => Some(SymbolToken::LeftParen),
+        ')' => Some(SymbolToken::RightParen),
         '!' => Some(SymbolToken::Bang),
         '>' => Some(SymbolToken::Greater),
         '<' => Some(SymbolToken::Less),
@@ -91,7 +95,7 @@ pub fn lex(s: String) -> Result<Vec<Token>> {
     let mut iter = s.chars().into_iter().peekable();
     while iter.peek().is_some() {
         if let Some(c) =
-            iter.next_if(|v| matches!(v, '+' | '-' | '=' | '{' | '}' | '!' | '>' | '<'))
+            iter.next_if(|v| matches!(v, '+' | '-' | '=' | '{' | '}' | '(' | ')' | '!' | '>' | '<'))
         {
             if let Some(c2) = iter.next_if(|v| matches!(v, '=')) {
                 match (c, c2) {
