@@ -19,6 +19,7 @@ pub enum ComplexNode {
     Begin(Vec<ComplexNode>, Box<ComplexNode>),
     Assignment(String, Box<ComplexNode>),
     If(Box<ComplexNode>, Box<ComplexNode>, Box<ComplexNode>),
+    While(Box<ComplexNode>, Box<ComplexNode>),
 }
 
 fn make_lets(lets: Vec<(String, ComplexNode)>, after: ComplexNode) -> ComplexNode {
@@ -48,7 +49,8 @@ impl Node {
             | Node::Begin(_, _)
             | Node::Let(_, _, _)
             | Node::Assignment(_, _)
-            | Node::If(_, _, _) => {
+            | Node::If(_, _, _)
+            | Node::While(_, _) => {
                 let binding = format!("tmp.{}", counter);
                 *counter += 1;
                 return (
@@ -102,6 +104,10 @@ impl Node {
                 Box::new(cond.rco_exp(counter)),
                 Box::new(conseq.rco_exp(counter)),
                 Box::new(alt.rco_exp(counter)),
+            ),
+            Node::While(cond, body) => ComplexNode::While(
+                Box::new(cond.rco_exp(counter)),
+                Box::new(body.rco_exp(counter)),
             ),
         }
     }
@@ -176,6 +182,9 @@ impl ComplexNode {
                 conseq.stringify(),
                 alt.stringify()
             ),
+            ComplexNode::While(cond, body) => {
+                format!("(while {} {})", cond.stringify(), body.stringify())
+            }
         }
     }
 }

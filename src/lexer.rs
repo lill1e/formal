@@ -21,11 +21,12 @@ pub enum SymbolToken {
     LessEqual,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Keyword {
     Let,
     If,
     Else,
+    While,
 }
 
 #[derive(Debug, Clone)]
@@ -88,6 +89,7 @@ pub fn lex_word(iter: &mut Peekable<Chars<'_>>) -> Token {
         "void" => Token::Symbol(SymbolToken::Void),
         "if" => Token::Keyword(Keyword::If),
         "else" => Token::Keyword(Keyword::Else),
+        "while" => Token::Keyword(Keyword::While),
         _ => Token::Identifier(acc),
     }
 }

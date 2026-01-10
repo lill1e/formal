@@ -31,6 +31,7 @@ pub enum Node {
     Unary(UnaryOperation, Box<Node>),
     Binary(BinaryOperation, Box<Node>, Box<Node>),
     If(Box<Node>, Box<Node>, Box<Node>),
+    While(Box<Node>, Box<Node>),
 }
 
 impl Node {
@@ -86,6 +87,7 @@ impl Node {
                 conseq.stringify(),
                 alt.stringify()
             ),
+            Node::While(cond, body) => format!("(while {} {})", cond.stringify(), body.stringify()),
         }
     }
 }
@@ -106,6 +108,10 @@ fn consume_let(iter: &mut Peekable<IntoIter<Token>>) -> Option<Token> {
 
 fn consume_equals(iter: &mut Peekable<IntoIter<Token>>) -> Option<Token> {
     iter.next_if(|t| matches!(t, Token::Symbol(SymbolToken::Equals)))
+}
+
+fn consume_keyword(iter: &mut Peekable<IntoIter<Token>>, keyword: &Keyword) -> Option<Token> {
+    iter.next_if(|t| matches!(t, Token::Keyword(kw) if keyword == kw))
 }
 
 fn parse_unit(iter: &mut Peekable<IntoIter<Token>>) -> Node {
@@ -324,6 +330,13 @@ fn parse_binding(iter: &mut Peekable<IntoIter<Token>>) -> Option<Node> {
 fn parse_top(iter: &mut Peekable<IntoIter<Token>>) -> Option<Node> {
     match iter.peek() {
         Some(Token::Keyword(Keyword::Let)) => parse_binding(iter),
+        Some(Token::Keyword(Keyword::While)) => {
+            iter.next();
+            Some(Node::While(
+                Box::new(parse_expression(iter)),
+                Box::new(parse_statement(iter).unwrap_or(Node::Void)),
+            ))
+        }
         Some(Token::Symbol(SymbolToken::RightBrace)) => None,
         None => None,
         _ => parse_statement(iter),

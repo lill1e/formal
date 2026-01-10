@@ -51,9 +51,18 @@ impl BinaryOperation {
 }
 
 impl ProgramNode {
-    fn create_block(&mut self, tail: OrderedNode) -> String {
+    fn new_label(&mut self) -> String {
         let block_label = format!("block{}", self.counter);
         self.counter += 1;
+        block_label
+    }
+
+    fn add_block(&mut self, label: String, tail: OrderedNode) -> () {
+        self.blocks.push((label, tail));
+    }
+
+    fn create_block(&mut self, tail: OrderedNode) -> String {
+        let block_label = self.new_label();
         self.blocks.push((block_label.clone(), tail.clone()));
         block_label
     }
@@ -124,6 +133,7 @@ impl ComplexNode {
             ComplexNode::If(cond, conseq, alt) => {
                 cond.is_pure() && conseq.is_pure() && alt.is_pure()
             }
+            ComplexNode::While(cond, body) => cond.is_pure() && body.is_pure(),
         }
     }
 
@@ -152,6 +162,14 @@ impl ComplexNode {
                     alt.explicate_effect(OrderedNode::Goto(cont), program)?,
                     program,
                 )?
+            }
+            ComplexNode::While(cond, body) => {
+                let start_label = program.new_label();
+                let goto = OrderedNode::Goto(start_label.clone());
+                let body_block = body.explicate_effect(goto.clone(), program)?;
+                let block_node = cond.explicate_pred(body_block, tail, program)?;
+                program.add_block(start_label.clone(), block_node);
+                goto
             }
             _ => panic!("explicate_effect received an impure value (needs impl)"),
         })
@@ -187,6 +205,7 @@ impl ComplexNode {
                 alt.explicate_tail(program)?,
                 program,
             )?,
+            ComplexNode::While(_, _) => self.explicate_tail(program)?,
         })
     }
 
@@ -238,6 +257,14 @@ impl ComplexNode {
                     program,
                 )?
             }
+            ComplexNode::While(_, _) => self.explicate_effect(
+                OrderedNode::Binding(
+                    binding,
+                    ReturnableNode::Terminal(TerminalNode::Void),
+                    Box::new(tail),
+                ),
+                program,
+            )?,
         })
     }
 

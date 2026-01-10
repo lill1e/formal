@@ -30,6 +30,10 @@ fn remove_redundant_begins(ast: Node) -> Node {
             Box::new(remove_redundant_begins(*conseq)),
             Box::new(remove_redundant_begins(*alt)),
         ),
+        Node::While(cond, body) => Node::While(
+            Box::new(remove_redundant_begins(*cond)),
+            Box::new(remove_redundant_begins(*body)),
+        ),
     }
 }
 

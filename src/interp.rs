@@ -96,6 +96,16 @@ impl Node {
                     alt.interpret(env)
                 }
             }
+            Node::While(cond, body) => {
+                let mut snapshot = env.clone();
+                let mut last = Returnable::Void;
+                while cond.interpret(&mut snapshot).unwrap_bool().unwrap() {
+                    last = body.interpret(&mut snapshot);
+                    break;
+                }
+                *env = snapshot;
+                last
+            }
         }
     }
 }
