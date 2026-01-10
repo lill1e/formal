@@ -145,6 +145,14 @@ impl ComplexNode {
                 }
                 return curr;
             }
+            ComplexNode::If(cond, conseq, alt) => {
+                let cont = program.create_block(tail);
+                cond.explicate_pred(
+                    conseq.explicate_effect(OrderedNode::Goto(cont.clone()), program)?,
+                    alt.explicate_effect(OrderedNode::Goto(cont), program)?,
+                    program,
+                )?
+            }
             _ => panic!("explicate_effect received an impure value (needs impl)"),
         })
     }
